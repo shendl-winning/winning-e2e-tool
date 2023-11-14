@@ -7,9 +7,9 @@ module.exports = {
           owner: 'shendl-winning',
           name: 'winning-e2e-tool'
         },
-        prerelease: false,
-        draft: true,
-        authToken:"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"
+        prerelease: false,  //此发行版是否应标记为预发行版
+        draft: true,        //此版本是否应标记为草稿
+        authToken:"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"
       }
     }
   ],
