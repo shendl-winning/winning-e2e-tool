@@ -5,7 +5,7 @@ module.exports = {
       config: {
         repository: {
           owner: 'shendl-winning',
-          name: 'winning-e2e'
+          name: 'winning-e2e-tool'
         },
         prerelease: false,
         draft: true,
