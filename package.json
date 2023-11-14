@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.0",
+    "update-electron-app": "^3.0.0",
     "vue": "^3.3.8"
   }
 }
