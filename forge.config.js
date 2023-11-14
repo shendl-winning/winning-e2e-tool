@@ -8,7 +8,7 @@ module.exports = {
           name: 'winning-e2e-tool'
         },
         prerelease: false,  //此发行版是否应标记为预发行版
-        draft: true,        //此版本是否应标记为草稿
+        draft: false,       //此版本是否应标记为草稿
         authToken:"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"
       }
     }
