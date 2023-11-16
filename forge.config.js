@@ -9,7 +9,7 @@ module.exports = {
         },
         prerelease: false,  //此发行版是否应标记为预发行版
         draft: false,       //此版本是否应标记为草稿
-        authToken:"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"
+        authToken:"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"
       }
     }
   ],

@@ -26,6 +26,9 @@
  * ```
  */
 
-import './index.css';
+import './assets/css/index.css';
+import { createApp } from 'vue';
+import App from './App.vue';
+import router from './router/index.js'
 
-console.log('👋 This message is being logged by "renderer.js", included via Vite');
+createApp(App).use(router).mount('#app');

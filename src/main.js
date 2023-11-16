@@ -14,13 +14,19 @@ updateElectronApp({
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
-
+//console.log(__filename);
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, '../../src/assets/image/test.png'),
+    autoHideMenuBar:true,
+    center:true,
+    darkTheme:true,
+    title:"Kelp",
     width: 800,
     height: 600,
     webPreferences: {
+      nodeIntegration: true,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
