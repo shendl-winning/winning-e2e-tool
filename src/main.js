@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, autoUpdater, dialog  } = require('electron');
 const path = require('path');
 
 const { updateElectronApp, UpdateSourceType } = require('update-electron-app')
@@ -10,6 +10,26 @@ updateElectronApp({
   }
 })
 
+autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
+  const dialogOpts = {
+    type: 'info',
+    buttons: ['重启', '稍后'],
+    title: '应用更新',
+    message: process.platform === 'win32' ? releaseNotes : releaseName,
+    detail: '应用已经更新了，请重启'
+  }
+
+  dialog.showMessageBox(dialogOpts).then((returnValue) => {
+    if(returnValue.response === 0) autoUpdater.quitAnd()
+  })
+});
+
+autoUpdater.on('error', message => {
+  console.error('There was a problem updating the application')
+  console.error(message)
+})
+
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
@@ -19,17 +39,20 @@ const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     icon: path.join(__dirname, '../../src/assets/image/test.png'),
+    show: false,
     autoHideMenuBar:true,
     center:true,
     darkTheme:true,
     title:"Kelp",
-    width: 800,
-    height: 600,
     webPreferences: {
       nodeIntegration: true,
       preload: path.join(__dirname, 'preload.js'),
-    },
+    }
   });
+
+  mainWindow.maximize();
+  mainWindow.focus();
+  mainWindow.show();
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

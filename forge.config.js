@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   publishers: [
     {
@@ -13,12 +15,19 @@ module.exports = {
       }
     }
   ],
-  packagerConfig: {},
+  packagerConfig: {
+      icon: path.join(__dirname, 'src/assets/image/bitbug_favicon'),
+      extraResource:path.join(__dirname, 'node_modules/.bin')
+  },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        iconUrl : path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
+        setupIcon: path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
+        loadingGif:path.join(__dirname, 'src/assets/image/loading.gif')
+      },
     },
     {
       name: '@electron-forge/maker-zip',
