@@ -1,8 +1,6 @@
 import { createRouter,createWebHashHistory } from "vue-router";
 import home from '@/views/Home.vue'
 import left from '@/views/Left.vue'
-import rightDefault from '@/views/RightDefault.vue'
-import right from '@/views/Right.vue'
 
 const router = createRouter({
     history: createWebHashHistory(),
@@ -15,8 +13,7 @@ const router = createRouter({
                 {
                     path: 'index',
                     components: {
-                        leftView: left,
-                        rightView: rightDefault
+                        leftView: left
                     }
                 }   
             ]

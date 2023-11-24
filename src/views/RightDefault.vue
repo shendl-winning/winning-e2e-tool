@@ -1,6 +1,10 @@
 <template>
-  <div class="rightDefault"></div>
+  <div class="rightDefault">
+  </div>
 </template>
+<script setup>
+
+</script>
 <style scoped>
   .rightDefault {
     background: url(@/assets/image/rightDefault.png) center center no-repeat;
