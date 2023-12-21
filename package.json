@@ -26,19 +26,26 @@
     "@electron-forge/plugin-auto-unpack-natives": "^6.4.2",
     "@electron-forge/plugin-vite": "^6.4.2",
     "@electron-forge/publisher-github": "^6.4.2",
+    "@types/codemirror": "^5.60.15",
     "@vitejs/plugin-vue": "^4.4.1",
     "cypress": "^13.5.1",
+    "cypress-real-events": "^1.11.0",
     "electron": "27.0.4",
     "unplugin-auto-import": "^0.16.7",
     "unplugin-vue-components": "^0.25.2"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.1.0",
+    "axios": "^1.6.2",
+    "codemirror": "^5.65.16",
+    "codemirror-editor-vue3": "^2.4.1",
     "cypress": "^13.5.1",
     "electron-squirrel-startup": "^1.0.0",
     "element-plus": "^2.4.2",
+    "mockjs": "^1.1.0",
     "pinia": "^2.1.7",
     "update-electron-app": "^3.0.0",
+    "uuid": "^9.0.1",
     "vue": "^3.3.8",
     "vue-router": "^4.2.5"
   }

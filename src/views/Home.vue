@@ -2,20 +2,40 @@
   <div id="left"><router-view name="leftView" @rightComponentHandle="rightComponentHandle" /></div>
   <div id="right">
     <transition name="fade">
-    <component :is="rightComponent" />
+    <component :is="rightComponent" :key="data"/>
     </transition>
   </div>
 </template>
-<script setup>
-import { shallowRef } from 'vue'
+<script setup lang="ts">
+import { shallowRef, provide, ref } from 'vue'
 import rightDefault from '@/views/RightDefault.vue'
-import right from '@/views/Right.vue'
+import testcase from '@/views/Testcase.vue'
+import inputMethodConfig from '@/views/InputMethodConfig.vue'
+import stepConfig from '@/views/StepConfig.vue'
 
 const  rightComponent = shallowRef(rightDefault)
-
-const rightComponentHandle = () => {
-		rightComponent.value = right;
+let proid = ref<string>("");
+provide('proid', proid);
+const data = ref();
+const rightComponentHandle = (type, id) => {
+    console.log(type + "///" + id);
+    proid.value = id;
+    data.value = Date.now();
+    switch(type){
+      case 4: 
+      rightComponent.value = testcase;
+      break;
+      case 1.1: 
+      rightComponent.value = stepConfig;
+      break;
+      case 0.1: 
+      rightComponent.value = inputMethodConfig;
+      break;
+    }
+		
 }
+
+
 
 </script>
 <style scoped>
@@ -27,15 +47,15 @@ const rightComponentHandle = () => {
     border-right:1px #CCCCFF solid;
     bottom:0px;
     overflow :auto;
-    padding:3px;
   }
 
   #right {
     position:absolute;
     left:350px;
     top:0;
-    right:0px;
+    right:2px;
     bottom:0px;
+    padding:10px 20px;
   }
 
   .fade-enter-active,
