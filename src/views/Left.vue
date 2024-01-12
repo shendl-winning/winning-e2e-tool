@@ -8,27 +8,44 @@
     />
     <el-tree
       ref="treeRef"
-      :data="dataSource"
+      :props="props"
+      :load="loadManages"
+      lazy
       node-key="id"
-      default-expand-all
+      highlight-current
+      draggable
+      :allow-drop="allowDrop"
+      :allow-drag="allowDrag"
+      @node-drop="handleDrop"
       :expand-on-click-node="false"
       :filter-node-method="filterNode"
     >
       <template #default="{ node, data }">
         <span class="custom-tree-node">
-          <span @click="handleNodeClick(data.type, data.id)">
-            <el-icon v-if="data.type == 0"><House /></el-icon>
-            <el-icon v-if="data.type == 1"><Cloudy /></el-icon>
-            <el-icon v-if="data.type == 2"><Files /></el-icon>
-            <el-icon v-if="data.type == 3"><Folder /></el-icon>
-            <el-icon v-if="data.type == 4"><Document /></el-icon>
-            {{ node.label }}
-          </span>
           <span>
+            <span v-if="data.type == 5"
+              ><el-checkbox
+                v-model="data.checked"
+                @click="checkboxClick(data)"
+              />
+              &nbsp;</span
+            >
+            <spn @click="handleNodeClick(data.type, data.id, data.name)">
+              {{ node.label }}
+            </spn>
+          </span>
+
+          <span>
+            <span style="float: left">
+              <a @click="refresh(node, data)">
+                <el-icon><Refresh /></el-icon>
+              </a>
+            </span>
             <el-popover
+              v-model="useTestcaseAppend.visible"
               placement="bottom"
               :width="180"
-              trigger="hover"
+              trigger="click"
               transition="el-zoom-in-top"
               hide-after="0"
             >
@@ -40,18 +57,7 @@
                 </span>
               </template>
               <el-menu>
-
-                <el-menu-item index="0" v-if="data.type == 1" @click="handleNodeClick(data.type + .1, data.id)">
-                  <el-icon><DocumentCopy /></el-icon>
-                  <span>交互节点配置</span>
-                </el-menu-item>
-
-                <el-menu-item index="0" v-if="data.type == 0" @click="handleNodeClick(data.type + .1)">
-                  <el-icon><DocumentCopy /></el-icon>
-                  <span>输入方式配置</span>
-                </el-menu-item>
-
-                <el-menu-item index="1" v-if="data.type != 0">
+                <el-menu-item index="1" v-if="data.type != 1">
                   <el-icon><DocumentCopy /></el-icon>
                   <span>复制</span>
                 </el-menu-item>
@@ -61,19 +67,30 @@
                   <span>重命名</span>
                 </el-menu-item>
 
-                <el-menu-item index="4" v-if="data.type != 0">
-                  <el-icon><Right /></el-icon>
-                  <span>移动到</span>
+                <el-menu-item
+                  index="2"
+                  v-if="data.type == 3"
+                  @click="useTestcaseAppend.executeTest(data, node)"
+                >
+                  <el-icon><VideoPlay /></el-icon>
+                  <span>执行测试</span>
                 </el-menu-item>
 
                 <el-divider></el-divider>
 
-                <el-menu-item index="6">
+                <el-menu-item index="6" v-if="data.type != 5">
                   <el-icon><FolderAdd /></el-icon>
-                  <span>添加子目录</span>
+                  <span v-if="data.type == 1">添加新产品</span>
+                  <span v-if="data.type == 2">添加新套件</span>
+                  <span v-if="data.type == 3">添加新分类</span>
+                  <span v-if="data.type == 4">添加新分类</span>
                 </el-menu-item>
 
-                <el-menu-item index="7" @click="remove(node, data)" v-if="data.type != 0">
+                <el-menu-item
+                  index="7"
+                  @click="remove(node, data)"
+                  v-if="data.type != 1"
+                >
                   <el-icon><Delete /></el-icon>
                   <span>删除</span>
                 </el-menu-item>
@@ -86,8 +103,8 @@
             >
               <span>
                 <a
-                  @click="useTestcaseAppend.openAppendDialog(data)"
-                  v-if="data.type != 4"
+                  @click="useTestcaseAppend.openAppendDialog(data, node)"
+                  v-if="[3, 4].includes(data.type)"
                 >
                   <el-icon><Plus /></el-icon>
                 </a>
@@ -123,6 +140,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import axios from "axios";
 import {
   Search,
   Plus,
@@ -137,14 +155,24 @@ import {
   DocumentCopy,
   Right,
   FolderAdd,
+  Refresh,
+  VideoPlay,
 } from "@element-plus/icons-vue";
+import { ElLoading } from "element-plus";
 import { ref, reactive, onMounted, watch } from "vue";
 import type Node from "element-plus/es/components/tree/src/model/node";
+import type { DragEvents } from "element-plus/es/components/tree/src/model/useDragNode";
+import type {
+  FakeNode,
+  AllowDropType,
+  NodeDropType,
+} from "element-plus/es/components/tree/src/model/tree.type";
 import { v4 as uuidv4 } from "uuid";
+import moment from "moment";
 
 const emit = defineEmits(["rightComponentHandle"]);
-const handleNodeClick = (type, id) => {
-  emit("rightComponentHandle", type, id);
+const handleNodeClick = (type, id, name) => {
+  emit("rightComponentHandle", type, id, name);
 };
 
 const filterText = ref("");
@@ -156,89 +184,160 @@ watch(filterText, (val) => {
 });
 const filterNode = (value: string, data: Tree) => {
   if (!value) return true;
-  return data.label.includes(value);
+  return data.name.includes(value);
 };
+
+interface TestRecord {
+  id: string;
+  name: string;
+  testsuite?: string;
+  testcase: string[];
+  tests: string;
+  passes: string;
+  pending: string;
+  failures: string;
+  duration: string;
+  passPercent: string;
+  report: string;
+  record: string;
+  executetime: string;
+  executestat: string;
+  creationdate: string;
+}
 
 interface Tree {
   id: string;
-  label: string;
-  type: number; //0:根节点 1:产品线 2：测试套件 3：分组目录 4：测试用例
-  children?: Tree[];
+  name: string;
+  type: number;
+  leaf: boolean;
+  parentid: string;
+  sort: number;
+  checked: boolean;
 }
+
+const props = {
+  label: "name",
+  children: "zones",
+  isLeaf: "leaf",
+};
+
 let id = 1000;
 
 const remove = (node: Node, data: Tree) => {
-  const parent = node.parent;
-  const children: Tree[] = parent.data.children;
-  const index = children.findIndex((d) => d.id === data.id);
-  children.splice(index, 1);
+  axios
+    .delete("http://172.16.7.148:9200/manages/_doc/" + data.id)
+    .then((res) => {
+      treeRef.value.remove(node);
+    });
 };
 
-const dataSource = ref<Tree[]>([
-  {
-    id: "763d94fa-d899-4703-881f-58d40286267a",
-    label: "区域卫生测试套件",
-    type: 0,
-    children: [
-      {
-        id: "0790bc07-dd97-4106-a339-1b71c3fceda3",
-        label: "基本公卫5.6",
-        type: 1,
-        children: [
-          {
-            id: "71617682-6d02-4aa4-ad7a-e412d8db35cf",
-            label: "[国家版]",
-            type: 2,
-            children: [
-              {
-                id: "bb11222e-afec-4d3c-b63f-d62551733e53",
-                label: "居民健康档案管理服务规范",
-                type: 2,
-                children: [
-                  {
-                    id: "c982a1d7-e2c6-4f9e-a7fe-84f68463fe40",
-                    label: "新增个人档案",
-                    type: 4,
-                    children: [],
-                  },
-                ],
-              },
-              {
-                id: "bfe9bc32-ea5e-448b-937b-23f9c19bb662",
-                label: "健康教育服务规范",
-                type: 2,
-              },
-            ],
-          },
-        ],
+const refresh = (node: Node, data: Tree) => {
+  node.loaded = false;
+  node.expand();
+};
+
+const loadManages = (node: Node, resolve: (data: Tree[]) => void) => {
+  let querystring = "";
+  if (node.level > 0) {
+    console.log(node.data.id);
+    querystring = node.data.id;
+  }
+  axios
+    .post("http://172.16.7.148:9200/manages/_doc/_search", {
+      from: 0,
+      size: 1000,
+      query: {
+        term: {
+          parentid: "" + querystring,
+        },
       },
-      {
-        id: "c8cca17c-7fd9-4603-8cbb-9c63a3ad3b8e",
-        label: "基层诊疗5.6",
-        type: 2,
-        children: [
-          {
-            id: "cc4601e1-9ed3-4d77-9ea8-df6490555663",
-            label: "门诊管理",
-            type: 2,
-            children: [
-              {
-                id: "64a0f1b4-7da9-4406-ac40-8f1709b9f806",
-                label: "门诊挂号",
-                type: 4,
-              },
-            ],
-          },
-          {
-            id: "4c5f5fab-890d-4e6f-be0e-cae71adaaadc",
-            label: "门诊医生站",
-            type: 2,
-          },
-        ],
+      sort: {
+        sort: {
+          order: "asc",
+        },
       },
-    ],
-  },
-]);
+    })
+    .then((res) => {
+      const data: Tree[] = [];
+      res.data.hits.hits.forEach((element) => {
+        let managenode = element._source;
+        data.push({
+          id: managenode.id,
+          name: managenode.name,
+          type: managenode.type,
+          leaf: managenode.leaf,
+          parentid: managenode.parentid,
+          sort: managenode.sort,
+          checked: managenode.checked,
+        });
+      });
+      return resolve(data);
+    });
+};
+
+const allowDrop = (draggingNode: Node, dropNode: Node, type: AllowDropType) => {
+  return (
+    [4, 5].includes(dropNode.data.type) &&
+    ((type == "inner" && dropNode.loaded) || type != "inner")
+  );
+};
+const allowDrag = (draggingNode: Node) => {
+  return [4, 5].includes(draggingNode.data.type);
+};
+
+const handleDrop = (
+  draggingNode: Node,
+  dropNode: Node,
+  dropType: NodeDropType,
+  ev: DragEvents
+) => {
+  let data = "\n";
+  dropNode.parent.childNodes.forEach((node, index) => {
+    data +=
+      '{ "index":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+      node.data.id +
+      '"}}\n';
+    data +=
+      '{"id": "' +
+      node.data.id +
+      '","name": "' +
+      node.data.name +
+      '","type": ' +
+      node.data.type +
+      ',"leaf": ' +
+      node.data.leaf +
+      ',"parentid": "' +
+      dropNode.parent.data.id +
+      '","sort": ' +
+      index +
+      ',"checked": ' +
+      node.data.checked +
+      "}\n";
+  });
+  data += "\n";
+  axios
+    .post("http://172.16.7.148:9200/_bulk", data, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+      },
+    })
+    .then((res) => {
+      console.log(res);
+    });
+};
+
+const checkboxClick = (data: Tree) => {
+  console.log(data.checked);
+  axios
+    .post("http://172.16.7.148:9200/manages/_doc/" + data.id + "/_update", {
+      doc: {
+        checked: !data.checked,
+      },
+    })
+    .then((res) => {
+      console.log(res);
+    });
+};
 
 /*
  * 场景：新增测试用例
@@ -252,21 +351,174 @@ const formLabelWidth = "140px";
 const useTestcaseAppend = reactive({
   dialogFormVisible: false,
   data: null,
+  node: null,
+  visible: false,
   onOpend: () => {
     inputRef.value && inputRef.value.focus();
   },
-  openAppendDialog: (data: Tree) => {
+  openAppendDialog: (data: Tree, node: Node) => {
     form.name = "";
     useTestcaseAppend.dialogFormVisible = true;
     useTestcaseAppend.data = data;
+    useTestcaseAppend.node = node;
   },
   append: () => {
-    useTestcaseAppend.dialogFormVisible = false;
-    const newChild = { id: uuidv4(), label: form.name, type: 4, children: [] };
-    if (!useTestcaseAppend.data.children) {
-      useTestcaseAppend.data.children = [];
+    const newChild = {
+      id: uuidv4(),
+      name: form.name,
+      type: 5,
+      leaf: true,
+      parentid: useTestcaseAppend.data.id,
+      sort: useTestcaseAppend.node.childNodes.length + 1,
+      checked: true,
+    };
+    axios
+      .post(
+        "http://172.16.7.148:9200/manages/_doc/" + newChild.id + "/_create",
+        newChild
+      )
+      .then((res) => {
+        console.log(newChild);
+        useTestcaseAppend.dialogFormVisible = false;
+        const testcase: FakeNode = {
+          data: newChild,
+        };
+        useTestcaseAppend.node.insertChild(testcase);
+        treeRef.value.setCurrentKey(newChild.id);
+        handleNodeClick(newChild.type, newChild.id, newChild.name);
+      });
+  },
+  executeTest: (data: Tree, node: Node) => {
+    const loading = ElLoading.service({
+      lock: true,
+      text: "Running",
+      background: "rgba(0, 0, 0, 0.4)",
+    });
+    let testcase: string[] = [];
+    async function getTestCase(parentid: string) {
+      return new Promise(async (resolve, reject) => {
+        // const compressPromises = []; // 存储promise执行队列
+        const res = await axios.post(
+          "http://172.16.7.148:9200/manages/_doc/_search",
+          {
+            query: {
+              bool: {
+                must: [
+                  {
+                    term: {
+                      parentid: parentid,
+                    },
+                  },
+                  {
+                    term: {
+                      checked: true,
+                    },
+                  },
+                ],
+              },
+            },
+            sort: {
+              sort: {
+                order: "asc",
+              },
+            },
+          }
+        );
+        await Promise.all(
+          res.data.hits.hits.map(async (element) => {
+            let node = element._source;
+            if (node.type == 5) {
+              testcase.push(node.id);
+            } else if (node.type == 4) {
+              await getTestCase(node.id);
+            }
+          })
+        );
+
+        resolve(true);
+      });
     }
-    useTestcaseAppend.data.children.push(newChild);
+    getTestCase(data.id).then((res) => {
+      useTestcaseAppend.visible = false;
+      const currentDate = new Date();
+      // 使用moment.js格式化日期
+      const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+      let uuid = uuidv4();
+      console.log(testcase.length);
+      let record = {
+        id: uuid,
+        name: data.name,
+        testsuite: data.id,
+        testcase: testcase,
+        report: "/src/assets/cypress/results/" + uuid.id,
+        record: "/src/assets/cypress/videos/" + uuid.id,
+        executetime: formattedDate,
+        executestat: "1",
+        creationdate: formattedDate,
+      };
+      axios
+        .post(
+          "http://172.16.7.148:9200/testrecord/_doc/" + uuid + "/_create",
+          record
+        )
+        .then((res) => {
+          console.log(res);
+          //Kelp.execute("yarn run cypress open --env id=" + uuid
+          Kelp.execute(
+            "yarn cypress run -s 'cypress/e2e/testsuite.cy.js' --config screenshotsFolder=src/assets/cypress/screenshots/" +
+              uuid +
+              ",videosFolder=src/assets/cypress/videos/" +
+              uuid +
+              " --reporter-options reportDir=src/assets/cypress/results/" +
+              uuid +
+              ",overwrite=true,html=true,json=true --env id=" +
+              uuid
+          ).then(() => {
+            axios
+              .get(
+                "/src/assets/cypress/results/" + uuid + "/mochawesome.json"
+              )
+              .then((res) => {
+                const mochawesome = res.data;
+                const currentDate = new Date();
+                // 使用moment.js格式化日期
+                const formattedDate = moment(currentDate).format(
+                  "YYYY-MM-DD HH:mm:ss"
+                );
+                const update = {
+                  doc: {
+                    tests: mochawesome.stats.tests,
+                    passes: mochawesome.stats.passes,
+                    pending: mochawesome.stats.pending,
+                    failures: mochawesome.stats.failures,
+                    duration: mochawesome.stats.duration,
+                    passPercent: mochawesome.stats.passPercent,
+                    executetime: formattedDate,
+                    executestat: 2,
+                  },
+                };
+                axios
+                  .post(
+                    "http://172.16.7.148:9200/testrecord/_doc/" +
+                      uuid +
+                      "/_update",
+                      update
+                  ).then(() => {
+                      setTimeout(function () {
+                        handleNodeClick(data.type, data.id, data.name);
+                        loading.close();
+                      }, 2000); // 定时
+                  });
+              });
+
+
+          });
+
+          setTimeout(function () {
+            handleNodeClick(data.type, data.id, data.name);
+          }, 2000); // 定时
+        });
+    });
   },
 });
 </script>
@@ -318,5 +570,9 @@ const useTestcaseAppend = reactive({
 
 :global(.el-icon:hover) {
   background-color: #ccc;
+}
+
+:global(.el-loading-parent--relative) {
+  position: static !important;
 }
 </style>

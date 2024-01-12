@@ -4,13 +4,18 @@ var exec = require('child_process').exec;
 const { contextBridge } = require('electron')
 
 contextBridge.exposeInMainWorld('Kelp', {
-  execute: (cmd) => {
-    exec(cmd, function(error, stdout, stderr) {
-        if(error){
-            console.error(error);
-        }else{
-            console.log("success");
+  execute: async (cmd, loading) => {
+    return new Promise(async (resolve, reject) => {
+      await exec(cmd, function (error, stdout, stderr) {
+        if (error) {
+          reject(error)
+          console.error(error);
+        } else {
+          resolve(true);
+          console.log("success");
         }
-    });
+      });
+
+    })
   }
-})
+});

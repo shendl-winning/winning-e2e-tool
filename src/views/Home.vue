@@ -7,28 +7,38 @@
   </div>
 </template>
 <script setup lang="ts">
-import { shallowRef, provide, ref } from 'vue'
+import { shallowRef, provide, ref , reactive} from 'vue'
 import rightDefault from '@/views/RightDefault.vue'
 import testcase from '@/views/Testcase.vue'
 import inputMethodConfig from '@/views/InputMethodConfig.vue'
 import stepConfig from '@/views/StepConfig.vue'
+import testRecord from '@/views/TestRecord.vue'
+import { ElLoading } from "element-plus";
 
 const  rightComponent = shallowRef(rightDefault)
-let proid = ref<string>("");
+let proid = ref({});
 provide('proid', proid);
 const data = ref();
-const rightComponentHandle = (type, id) => {
-    console.log(type + "///" + id);
-    proid.value = id;
-    data.value = Date.now();
+const rightComponentHandle = (type, id, name) => {
+    proid.value = {
+      "id" : id,
+      "name" : name
+    };
     switch(type){
-      case 4: 
+      case 5: 
+      data.value = Date.now();
       rightComponent.value = testcase;
       break;
-      case 1.1: 
+      case 3: 
+      data.value = Date.now();
+      rightComponent.value = testRecord;
+      break;
+      case 2: 
+      data.value = Date.now();
       rightComponent.value = stepConfig;
       break;
-      case 0.1: 
+      case 1: 
+      data.value = Date.now();
       rightComponent.value = inputMethodConfig;
       break;
     }

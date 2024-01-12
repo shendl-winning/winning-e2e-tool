@@ -24,6 +24,8 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 import Mock from 'mockjs'
+import 'cypress-iframe'
+
 let inputs = {};
 Cypress.Commands.add('exeInput', (data,  body) => {
     let $body =  body ? cy.wrap(body) : cy.get("body")
@@ -60,10 +62,24 @@ Cypress.Commands.add('exeAction', (datas, step, body) => {
 });
 
 
-Cypress.Commands.add('onIframeLoad', { prevSubject: 'element' }, $iframe => {
-    return new Cypress.Promise(resolve => {
-        $iframe.on('load', () => {
-            resolve($iframe.contents());
+//等待iframe加载完，并返回jq的body对象 
+Cypress.Commands.add('getIframeBody', { prevSubject: 'element' }, $iframe => {
+	// 定义getIframeBody方法
+  // and retry until the body element is not empty
+  return cy
+          .get('iframe', { log: false })
+          .its('0.contentDocument.body', { log: false }).should('not.be.empty')
+          .then((body) => cy.wrap(body, { log: false }))
+});
+
+Cypress.Commands.add('onIframeLoad', { prevSubject: 'element' }, ($iframe,  nextkey) => {
+    if($iframe.contents().find(nextkey).length > 0){
+        return cy.wrap($iframe.contents())
+    }else{
+        return new Cypress.Promise(resolve => {
+            $iframe.on('load', () => {
+                resolve($iframe.contents());
+            });
         });
-    });
+    }
   });

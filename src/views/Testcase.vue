@@ -6,7 +6,7 @@
           <el-form>
             <div class="tab1top">
               <el-form-item label="用例名称：">
-                <el-input v-model="testcase.name" autocomplete="off" />
+                <el-input v-model="testcase.name" autocomplete="off" ref="autofocus" readonly/>
               </el-form-item>
               <el-form-item label="用例目的：">
                 <el-input
@@ -195,11 +195,14 @@ import type { TabsPaneContext } from "element-plus";
 import { ElMessage, ElNotification } from "element-plus";
 import { v4 as uuidv4 } from "uuid";
 import "element-plus/es/components/message/style/css";
-let testcaseid = inject("proid").value;
+let proid = inject("proid").value;
+let testcaseid = proid.id
+let testcasename = proid.name
 const execute = () => {
-  Kelp.execute("yarn run cypress open");
+  Kelp.execute("yarn run cypress open --env id=" + testcaseid);
 };
 const activeName = ref("first");
+const autofocus = ref(null);
 
 interface Datas {
   id: string;
@@ -233,17 +236,20 @@ interface TestCase {
 }
 const testcase = ref<TestCase>({
   id: testcaseid,
-  name: "",
+  name: testcasename,
   describe: "",
   steps: [],
 });
-
+let testcaseAdded = true;
 onMounted(() => {
-  console.log();
+  autofocus.value.focus();
   axios
     .get("http://172.16.7.148:9200/testcase/_doc/" + testcaseid)
     .then((res) => {
       testcase.value = res.data._source;
+    }).catch(error => {
+    // 请求失败处理
+      testcaseAdded = false;
     });
 });
 const stepActive = ref(0);
@@ -331,13 +337,17 @@ const testCaseModifyHandlConfirm = () => {
       describe: testcase.value.describe,
       steps: testcase.value.steps,
       modificationdate: "2023-12-11 16:08:06",
-      //creationdate: "2023-12-11"
-    },
+    }
   };
+  let action = "/_update";
+  if(!testcaseAdded){
+    action = "/_create";
+    p.doc["creationdate"] = "2023-12-11";
+  }
   axios
     .post(
-      "http://172.16.7.148:9200/testcase/_doc/" + testcaseid + "/_update",
-      p
+      "http://172.16.7.148:9200/testcase/_doc/" + testcaseid + action,
+      testcaseAdded ? p : p.doc
     )
     .then((res) => {
       ElMessage({

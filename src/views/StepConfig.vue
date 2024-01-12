@@ -274,7 +274,7 @@ const handleLoad = () => {
   axios
     .post("http://172.16.7.148:9200/step/_doc/_search", {
       from: 0,
-      size: 10,
+      size: 100,
       query: {
         match_all: {},
       },
@@ -484,7 +484,7 @@ const remoteInputMethod = (query: string) => {
     axios
       .post("http://172.16.7.148:9200/inputmethod/_doc/_search", {
         from: 0,
-        size: 10,
+        size: 100,
         query: {
           wildcard: {
             name: "*" + query + "*",
