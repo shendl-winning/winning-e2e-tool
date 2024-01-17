@@ -6,7 +6,12 @@
           <el-form>
             <div class="tab1top">
               <el-form-item label="用例名称：">
-                <el-input v-model="testcase.name" autocomplete="off" ref="autofocus" readonly/>
+                <el-input
+                  v-model="testcase.name"
+                  autocomplete="off"
+                  ref="autofocus"
+                  readonly
+                />
               </el-form-item>
               <el-form-item label="用例目的：">
                 <el-input
@@ -23,7 +28,7 @@
                 :class="['step', stepActive == index ? 'active' : '']"
                 @click="stepClickHandl(step, index)"
               >
-                <el-checkbox v-model="step.check" :label="step.name" />
+                <el-checkbox v-model="step.check" /> {{ step.name }}
                 <el-icon v-if="step.datas.length > 0"><Document /></el-icon>
                 <el-icon :class="['icon', stepActive == index ? 'active' : '']"
                   ><CaretRight
@@ -195,9 +200,11 @@ import type { TabsPaneContext } from "element-plus";
 import { ElMessage, ElNotification } from "element-plus";
 import { v4 as uuidv4 } from "uuid";
 import "element-plus/es/components/message/style/css";
+import moment from "moment";
+
 let proid = inject("proid").value;
-let testcaseid = proid.id
-let testcasename = proid.name
+let testcaseid = proid.id;
+let testcasename = proid.name;
 const execute = () => {
   Kelp.execute("yarn run cypress open --env id=" + testcaseid);
 };
@@ -217,14 +224,10 @@ interface Datas {
 }
 
 interface Step {
-  check: boolean;
   id: string;
   name: string;
-  action: string;
-  key: string;
-  iframekey: string;
-  parentid: string[];
-  assertion: any[];
+  check: boolean;
+  assertions: any[];
   datas: Datas[];
 }
 
@@ -247,16 +250,41 @@ onMounted(() => {
     .get("http://172.16.7.148:9200/testcase/_doc/" + testcaseid)
     .then((res) => {
       testcase.value = res.data._source;
-    }).catch(error => {
-    // 请求失败处理
+      const ids = [];
+      testcase.value.steps.map((step) => {
+        ids.push(step.id);
+      });
+      axios
+        .post("http://172.16.7.148:9200/step/_doc/_search", {
+          query: {
+            terms: {
+              id: ids,
+            },
+          },
+        })
+        .then((res) => {
+          const id_name = {};
+          res.data.hits.hits.forEach((element) => {
+            let step = element._source;
+            id_name[step.id] = step.name;
+          });
+
+          testcase.value.steps.map((step) => {
+            step.name = id_name[step.id]
+          });
+
+        });
+    })
+    .catch((error) => {
+      // 请求失败处理
       testcaseAdded = false;
     });
 });
 const stepActive = ref(0);
 const loading = ref(false);
 const dialogVisible = ref(false);
-const nextstep = ref();
-const parentStepOptions = ref([]);
+const nextstep = ref<Step>();
+const parentStepOptions = ref<Step[]>([]);
 
 const stepClickHandl = (step, index) => {
   stepActive.value = index;
@@ -286,7 +314,6 @@ const remoteParentSteps = (query: string) => {
     };
   } else {
     const step = testcase.value.steps.slice(-1);
-    console.log(step[0].name);
     querystring = {
       match: {
         "parentid.value": step[0].id,
@@ -309,6 +336,12 @@ const remoteParentSteps = (query: string) => {
       loading.value = false;
       res.data.hits.hits.forEach((element) => {
         let step = element._source;
+        delete step.action;
+        delete step.key;
+        delete step.iframekey;
+        delete step.parentid;
+        delete step.modificationdate;
+        delete step.creationdate;
         parentStepOptions.value.push(step);
       });
     });
@@ -324,25 +357,29 @@ const stepAddhandlConfirm = () => {
   if (nextstep.value) {
     testcase.value.steps.push(nextstep.value);
     dataSource.value[0].children = nextstep.value.datas;
+    //加断言
   }
   stepActive.value = testcase.value.steps.length - 1;
   dialogVisible.value = false;
 };
 
 const testCaseModifyHandlConfirm = () => {
+  const currentDate = new Date();
+  // 使用moment.js格式化日期
+  const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
   let p = {
     doc: {
       id: testcase.value.id,
       name: testcase.value.name,
       describe: testcase.value.describe,
       steps: testcase.value.steps,
-      modificationdate: "2023-12-11 16:08:06",
-    }
+      modificationdate: formattedDate,
+    },
   };
   let action = "/_update";
-  if(!testcaseAdded){
+  if (!testcaseAdded) {
     action = "/_create";
-    p.doc["creationdate"] = "2023-12-11";
+    p.doc["creationdate"] = formattedDate;
   }
   axios
     .post(
@@ -442,7 +479,7 @@ const append = (node: Node, data: Datas) => {
     fieldCname: "",
     children: [],
   };
-  console.log(data.inputDataType)
+
   if (data.inputDataType == "0") {
     const children: Datas[] = node.parent.data.children || node.parent.data;
     children.splice(children.indexOf(data) + 1, 0, newChild);
@@ -479,7 +516,6 @@ const handleDelete = (index: number, row: Assertion) => {
 };
 
 const tableData: Assertion[] = [];
-
 </script>
 
 <style scoped>

@@ -9,10 +9,8 @@ contextBridge.exposeInMainWorld('Kelp', {
       await exec(cmd, function (error, stdout, stderr) {
         if (error) {
           reject(error)
-          console.error(error);
         } else {
           resolve(true);
-          console.log("success");
         }
       });
 

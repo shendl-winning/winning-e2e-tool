@@ -15,6 +15,39 @@ describe('Kelp E2E Testing', () => {
 		}
 	});
 
+	const ids = [];
+	testcase.steps.map((step) => {
+		ids.push('"' + step.id + '"');
+	});
+	//alert('{"query": {"terms": {"id":['+ids+']}}}');
+	Cypress.$.ajax({
+		url: 'http://172.16.7.148:9200/step/_doc/_search',
+		type: 'post',
+		async: false,
+		cache: true,
+		dataType: "json",
+		contentType:'application/json;charset=utf-8',
+		data: '{"query": {"terms": {"id":['+ids+']}}}',
+		success: function (response) {
+			const id_name = {};
+			response.hits.hits.map((element) => {
+				let step = element._source;
+				id_name[step.id] = step;
+			});
+
+			testcase.steps.forEach((step) => {
+				step.name = id_name[step.id].name
+				step.action = id_name[step.id].action
+				step.key = id_name[step.id].key
+				step.iframekey = id_name[step.id].iframekey
+			});
+		},
+		error:function (error) {
+			alert(JSON.stringify(error))
+		}
+
+	});
+
 	context(testcase.name, () => {
 
 		testcase.steps.forEach((step) => {

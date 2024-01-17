@@ -391,7 +391,7 @@ const useTestcaseAppend = reactive({
   executeTest: (data: Tree, node: Node) => {
     const loading = ElLoading.service({
       lock: true,
-      text: "Running",
+      text: data.name + " Running",
       background: "rgba(0, 0, 0, 0.4)",
     });
     let testcase: string[] = [];
@@ -473,52 +473,56 @@ const useTestcaseAppend = reactive({
               uuid +
               ",overwrite=true,html=true,json=true --env id=" +
               uuid
-          ).then(() => {
-            axios
-              .get(
-                "/src/assets/cypress/results/" + uuid + "/mochawesome.json"
-              )
-              .then((res) => {
-                const mochawesome = res.data;
-                const currentDate = new Date();
-                // 使用moment.js格式化日期
-                const formattedDate = moment(currentDate).format(
-                  "YYYY-MM-DD HH:mm:ss"
-                );
-                const update = {
-                  doc: {
-                    tests: mochawesome.stats.tests,
-                    passes: mochawesome.stats.passes,
-                    pending: mochawesome.stats.pending,
-                    failures: mochawesome.stats.failures,
-                    duration: mochawesome.stats.duration,
-                    passPercent: mochawesome.stats.passPercent,
-                    executetime: formattedDate,
-                    executestat: 2,
-                  },
-                };
-                axios
-                  .post(
-                    "http://172.16.7.148:9200/testrecord/_doc/" +
-                      uuid +
-                      "/_update",
-                      update
-                  ).then(() => {
-                      setTimeout(function () {
-                        handleNodeClick(data.type, data.id, data.name);
-                        loading.close();
-                      }, 2000); // 定时
-                  });
-              });
-
-
-          });
+          ).then(
+            (succ) => {
+              useTestcaseAppend.updateTestrecord(uuid, data, loading, 2);
+            },
+            (fail) => {
+              //如果 promise 的状态为 rejected，则执行这里的代码
+              useTestcaseAppend.updateTestrecord(uuid, data, loading, 3);
+              console.error(fail);
+            }
+          );
 
           setTimeout(function () {
             handleNodeClick(data.type, data.id, data.name);
-          }, 2000); // 定时
+          }, 1500); // 定时
+
         });
     });
+  },
+  updateTestrecord: (uuid, data, loading, executestat) => {
+    axios
+      .get("/src/assets/cypress/results/" + uuid + "/mochawesome.json")
+      .then((res) => {
+        const mochawesome = res.data;
+        const currentDate = new Date();
+        // 使用moment.js格式化日期
+        const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+        const update = {
+          doc: {
+            tests: mochawesome.stats.tests,
+            passes: mochawesome.stats.passes,
+            pending: mochawesome.stats.pending,
+            failures: mochawesome.stats.failures,
+            duration: mochawesome.stats.duration,
+            passPercent: mochawesome.stats.passPercent,
+            executetime: formattedDate,
+            executestat: executestat,
+          },
+        };
+        axios
+          .post(
+            "http://172.16.7.148:9200/testrecord/_doc/" + uuid + "/_update",
+            update
+          )
+          .then(() => {
+            setTimeout(function () {
+              handleNodeClick(data.type, data.id, data.name);
+              loading.close();
+            }, 1500); // 定时
+          });
+      });
   },
 });
 </script>

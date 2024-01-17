@@ -10,12 +10,25 @@
           </el-table-column>
           <el-table-column label="执行情况" width="200">
             <template #default="scope">
-              <div>用例数： {{ scope.row.testcase.length }} 例</div> 
-              <div>总测试步骤：{{ scope.row.tests }} 步</div> 
-              <div>成功数：{{ scope.row.passes }} 步</div> 
-              <div>等待数：{{ scope.row.pending }} 步</div> 
-              <div>失败数：{{ scope.row.failures }} 步</div> 
+              <div>用例数： {{ scope.row.testcase.length }} 例</div>
+              <div>总测试步骤：{{ scope.row.tests }} 步</div>
+              <div>成功数：{{ scope.row.passes }} 步</div>
+              <div>等待数：{{ scope.row.pending }} 步</div>
+              <div>失败数：{{ scope.row.failures }} 步</div>
               <div>通过百分比：{{ scope.row.passPercent }}%</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="执行状态" width="100">
+            <template #default="scope">
+              <div v-if="scope.row.executestat == 1" style="color: yellow">
+                执行中
+              </div>
+              <div v-if="scope.row.executestat == 2" style="color: green">
+                执行完成
+              </div>
+              <div v-if="scope.row.executestat == 3" style="color: red">
+                执行失败
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="执行日期">
@@ -218,6 +231,7 @@ const handleDelete = (row) => {
 
 const handleExecute = (row) => {
   //fullscreenLoading.value = true;
+  row.executestat = 1;
   const loading = ElLoading.service({
     lock: true,
     text: row.name + " Running",
@@ -232,40 +246,51 @@ const handleExecute = (row) => {
       row.id +
       ",overwrite=true,html=true,json=true --env id=" +
       row.id
-  ).then(() => {
-    axios
-      .get("/src/assets/cypress/results/" + row.id + "/mochawesome.json")
-      .then((res) => {
-        const mochawesome = res.data;
-        const currentDate = new Date();
-        // 使用moment.js格式化日期
-        const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
-        console.log(mochawesome.stats.tests)
-        const update = {
-          doc: {
-            tests: mochawesome.stats.tests,
-            passes: mochawesome.stats.passes,
-            pending: mochawesome.stats.pending,
-            failures: mochawesome.stats.failures,
-            duration: mochawesome.stats.duration,
-            passPercent: mochawesome.stats.passPercent,
-            executetime: formattedDate,
-            executestat: 2,
-          },
-        };
-        axios
-          .post(
-            "http://172.16.7.148:9200/testrecord/_doc/" + row.id + "/_update",
-            update
-          )
-          .then(() => {
-            setTimeout(function () {
-              handleLoad();
-              loading.close();
-            }, 2000); // 定时
-          });
-      });
-  });
+  ).then(
+    (succ) => {
+      updateTestrecord(row, loading, 2);
+    },
+    (fail) => {
+      //如果 promise 的状态为 rejected，则执行这里的代码
+      updateTestrecord(row, loading, 3);
+      console.error(fail);
+    }
+  );
+};
+
+const updateTestrecord = (row, loading, executestat) => {
+  axios
+    .get("/src/assets/cypress/results/" + row.id + "/mochawesome.json")
+    .then((res) => {
+      const mochawesome = res.data;
+      const currentDate = new Date();
+      // 使用moment.js格式化日期
+      const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+      console.log(mochawesome.stats.tests);
+      const update = {
+        doc: {
+          tests: mochawesome.stats.tests,
+          passes: mochawesome.stats.passes,
+          pending: mochawesome.stats.pending,
+          failures: mochawesome.stats.failures,
+          duration: mochawesome.stats.duration,
+          passPercent: mochawesome.stats.passPercent,
+          executetime: formattedDate,
+          executestat: executestat,
+        },
+      };
+      axios
+        .post(
+          "http://172.16.7.148:9200/testrecord/_doc/" + row.id + "/_update",
+          update
+        )
+        .then(() => {
+          setTimeout(function () {
+            handleLoad();
+            loading.close();
+          }, 1500); // 定时
+        });
+    });
 };
 
 handleLoad();
@@ -273,15 +298,11 @@ handleLoad();
 
 <style scoped>
 .content {
+  border:0px #000 solid;
   position: relative;
   width: 100%;
   height: 100%;
 }
-
-:global(.el-tabs) {
-  height: 100%;
-}
-
 :global(.el-tabs__content) {
   position: absolute;
   top: 50px;
@@ -290,38 +311,20 @@ handleLoad();
   left: 0px;
 }
 
-.content1-left {
-  position: absolute;
-  top: 0px;
-  right: 70%;
-  left: 0px;
-  bottom: 0px;
-  margin-right: 5px;
-  overflow-y: scroll;
-  border: 1px solid #ccc;
-  padding: 10px 20px 0px 0px;
+:global(.el-tab-pane) {
+  height: 100%;
 }
 
-.content1-right {
-  position: absolute;
+:global(.el-table) {
+  height: 100%;
+}
+
+:global(.el-table__body-wrapper){
+   position: absolute;
+  top: 40px;
   right: 0px;
-  left: 30%;
-  bottom: 50%;
-  border: 1px solid #ccc;
-  overflow: scroll;
-  padding: 0px 5px;
-}
-
-.content1-data {
-  top: 0px;
-  bottom: 50%;
-  padding-top: 3px;
-}
-
-.content1-assertion {
-  margin-top: 5px;
-  top: 50%;
   bottom: 0px;
+  left: 0px;
 }
 
 ::-webkit-scrollbar {
@@ -332,9 +335,6 @@ handleLoad();
   background-color: #ccc;
 }
 
-.custom-tree-node {
-  width: 100%;
-}
 
 .opbuttons {
   position: absolute;
@@ -345,4 +345,5 @@ handleLoad();
 :global(.el-loading-parent--relative) {
   position: static !important;
 }
+
 </style>

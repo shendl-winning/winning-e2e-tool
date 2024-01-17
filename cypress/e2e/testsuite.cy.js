@@ -16,9 +16,6 @@ describe('Kelp E2E Testing', () => {
 	});
 
 	context(testsuite.name, () => {
-
-
-
 		testsuite.testcase.forEach((testcaseid) => {
 			let testcase = null;
 			Cypress.$.ajax({
@@ -31,8 +28,41 @@ describe('Kelp E2E Testing', () => {
 				}
 			});
 
+			const ids = [];
+			testcase.steps.map((step) => {
+				ids.push('"' + step.id + '"');
+			});
+
+			Cypress.$.ajax({
+				url: 'http://172.16.7.148:9200/step/_doc/_search',
+				type: 'post',
+				async: false,
+				cache: true,
+				dataType: "json",
+				contentType: 'application/json;charset=utf-8',
+				data: '{"query": {"terms": {"id":[' + ids + ']}}}',
+				success: function (response) {
+					const id_name = {};
+					response.hits.hits.map((element) => {
+						let step = element._source;
+						id_name[step.id] = step;
+					});
+
+					testcase.steps.forEach((step) => {
+						step.name = id_name[step.id].name
+						step.action = id_name[step.id].action
+						step.key = id_name[step.id].key
+						step.iframekey = id_name[step.id].iframekey
+					});
+				},
+				error: function (error) {
+					alert(JSON.stringify(error))
+				}
+
+			});
+
 			context(testcase.name, () => {
-				testcase.steps.forEach((step) => {
+				testcase.steps.forEach((step, index) => {
 					if (step.check) {
 						it(step.name, () => {
 							if (step.iframekey) {
@@ -50,6 +80,11 @@ describe('Kelp E2E Testing', () => {
 								});
 							} else {
 								cy.exeAction(step.datas, step)
+							}
+
+							//最后一步可能录制不下来，等待2秒。
+							if(testcase.steps.length == index+1){
+								cy.wait(2000);
 							}
 						});
 					}

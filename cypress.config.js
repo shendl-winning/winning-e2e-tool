@@ -16,8 +16,6 @@ module.exports = defineConfig({
 		json: false,
   },
   video:true,
-  videosFolder:"cypress/videos",
   videoCompression:10,
-  trashAssetsBeforeRuns:false,
-  screenshotsFolder:"cypress/screenshots"
+  trashAssetsBeforeRuns:true,
 });
