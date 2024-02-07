@@ -62,6 +62,7 @@
                 v-model="step.action"
                 placeholder="Select"
                 size="small"
+                @change="actionChange"
               >
                 <el-option
                   v-for="item in actionOptions"
@@ -110,7 +111,7 @@
             <el-button type="primary" @click="handleConfirm">保 存</el-button>
           </div>
         </div>
-        <div class="content1-right content1-data">
+        <div :class="rightDataClass">
           <el-tree
             :data="dataSource"
             node-key="id"
@@ -185,27 +186,40 @@
             </template>
           </el-tree>
         </div>
-        <div class="content1-right content1-assertion">
-          <el-button size="small" style="float: right; margin-top: 3px"
+        <div :class="rightAssertionClass">
+          <el-button
+            size="small"
+            style="float: right; margin-top: 3px"
+            @click="assertionHandleAdd"
             >+断言</el-button
           >
-          <el-table :data="tableData">
+          <el-table :data="Assertions">
             <el-table-column label="标题">
               <template #default="scope">
-                {{ scope.row.name }}
+                判断（ {{ scope.row.selector }} ）, {{ scope.row.asser.label }}
+              </template>
+            </el-table-column>
+            <el-table-column label="是否启用" width="100">
+              <template #default="scope">
+                <el-switch
+                  v-model="scope.row.enable"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="不启用"
+                />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200">
               <template #default="scope">
                 <el-button
                   size="small"
-                  @click="handleEdit(scope.$index, scope.row)"
+                  @click="assertionHandleEdit(scope.$index, scope.row)"
                   >编辑</el-button
                 >
                 <el-button
                   size="small"
                   type="danger"
-                  @click="handleDelete(scope.$index, scope.row)"
+                  @click="assertionHandleDelete(scope.$index, scope.row)"
                   >删除</el-button
                 >
               </template>
@@ -215,6 +229,10 @@
       </el-tab-pane>
     </el-tabs>
     <div class="opbuttons">
+      <el-button type="info" size="small" @click="openDialog"
+        >思维导图</el-button
+      >
+
       <el-button type="success" size="small" @click="handleAdd"
         >新 建</el-button
       >
@@ -223,18 +241,98 @@
       >
     </div>
   </div>
+
+  <el-dialog v-model="dialogVisible" title="思维导图" width="70%">
+    <div style="height: 500px">
+      <VueFlow>
+        <Background />
+        <Controls position="top-right"></Controls>
+        <template>
+          <FlowNodeGroup />
+        </template>
+      </VueFlow>
+    </div>
+  </el-dialog>
+
+  <el-dialog v-model="dialogAssertionVisible" title="断言" width="30%">
+    <el-form>
+      <el-form-item label="元素选择器：" label-width="100px">
+        <el-input v-model="Assertion.selector" type="text" size="small" />
+      </el-form-item>
+      <el-form-item label="断言：" label-width="100px">
+        <el-select v-model="Assertion.asser" placeholder="Select" size="small">
+          <el-option
+            v-for="item in Assertion.options"
+            :key="item.value"
+            :label="item.label"
+            :value="item"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="内容：" label-width="100px">
+        <el-input v-model="Assertion.content" type="text" size="small" />
+      </el-form-item>
+      <el-form-item label="是否启用：" label-width="100px">
+        <el-switch v-model="Assertion.enable" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogAssertionVisible = false">取消</el-button>
+        <el-button type="primary" @click="dialogAssertionConfirm">
+          确定
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 <script setup lang="ts">
 import axios from "axios";
-import { ref, reactive, inject } from "vue";
+import { ref, reactive, inject, onMounted } from "vue";
 import type { TabsPaneContext } from "element-plus";
 import type Node from "element-plus/es/components/tree/src/model/node";
 import { v4 as uuidv4 } from "uuid";
+import { VueFlow, useVueFlow, Position, getRectOfNodes } from "@vue-flow/core";
+import { Background } from "@vue-flow/background";
+import { Controls } from "@vue-flow/controls";
+import { MiniMap } from "@vue-flow/minimap";
+import FlowNodeGroup from "@/views/FlowNodeGroup.vue";
+import { vueFlowSetRoot, vueFlowInit } from "@/common/vue-flow";
+import "@vue-flow/core/dist/style.css";
+import "@vue-flow/core/dist/theme-default.css";
+import "@vue-flow/controls/dist/style.css";
+import "@vue-flow/minimap/dist/style.css";
+import moment from "moment";
 
 const proid = inject("proid");
 const activeName = ref("first");
 const editableTab = ref(false);
 const editableTabtitle = ref("");
+const dialogVisible = ref(false);
+const dialogAssertionVisible = ref(false);
+let rightDataClass = ref(["content1-right", "content1-data"]);
+let rightAssertionClass = ref(["content1-right", "content1-assertion"]);
+
+const {
+  getNode,
+  getNodes,
+  addNodes,
+  addEdges,
+  nodes,
+  edges,
+  onPaneReady,
+  setViewport,
+} = useVueFlow({
+  nodesDraggable: true,
+  // set this to true so edges get elevated when selected, defaults to false
+  fitViewOnInit: false,
+  nodes: [],
+  edges: [],
+});
+
+const openDialog = () => {
+  dialogVisible.value = true;
+};
 
 const removeTab = (targetName: string) => {
   if (activeName.value === targetName) {
@@ -297,7 +395,34 @@ const handleLoad = () => {
           assertion: [],
           datas: [],
         });
+        if (step.parentid.length == 0) {
+          vueFlowSetRoot(step.id);
+        }
+        addNodes({
+          id: step.id,
+          label: step.name,
+          position: { x: 0, y: 0 },
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
+        });
+        step.parentid.forEach((parent) => {
+          addEdges({
+            id: uuidv4(),
+            source: parent.value,
+            target: step.id,
+          });
+        });
       });
+      vueFlowInit(
+        getNode,
+        getNodes,
+        addNodes,
+        addEdges,
+        nodes,
+        edges,
+        onPaneReady,
+        setViewport
+      );
     });
 };
 
@@ -317,6 +442,7 @@ const handleAdd = () => {
   activeName.value = "second";
   editableTab.value = true;
   editableTabtitle.value = "新增交互节点";
+  actionChange(step.value.action);
 };
 const handleEdit = (row) => {
   axios.get("http://172.16.7.148:9200/step/_doc/" + row.id).then((res) => {
@@ -330,10 +456,12 @@ const handleEdit = (row) => {
     step.value.assertion = im.assertion;
     step.value.datas = im.datas;
     dataSource.value[0].children = im.datas;
+    Assertions.value = im.assertion;
     dialogStat = "edit";
     activeName.value = "second";
     editableTab.value = true;
     editableTabtitle.value = "修改交互节点";
+    actionChange(im.action);
   });
 };
 const handleDelete = (row) => {
@@ -373,6 +501,19 @@ const actionOptions = [
     label: "hover",
   },
 ];
+
+const actionChange = (value) => {
+  if (value == "fill") {
+    rightDataClass.value = ["content1-right", "content1-data-for-fill"];
+    rightAssertionClass.value = [
+      "content1-right",
+      "content1-assertion-for-fill",
+    ];
+  } else {
+    rightDataClass.value = ["content1-right", "content1-data"];
+    rightAssertionClass.value = ["content1-right", "content1-assertion"];
+  }
+};
 
 const props1 = {
   checkStrictly: true,
@@ -446,14 +587,17 @@ const handleConfirm = () => {
     key: step.value.key,
     iframekey: step.value.iframekey,
     parentid: step.value.parentid,
-    assertion: step.value.assertion,
+    assertion: Assertions.value,
     datas: dataSource.value[0].children,
   };
-  p["modificationdate"] = "2023-12-11 16:08:06";
+  const currentDate = new Date();
+  // 使用moment.js格式化日期
+  const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+  p["modificationdate"] = formattedDate;
   if (dialogStat == "add") {
     action = "/_create";
     param = p;
-    param["creationdate"] = "2023-12-11";
+    param["creationdate"] = formattedDate;
   }
   if (dialogStat == "edit") {
     param["doc"] = p;
@@ -521,7 +665,7 @@ const dataSource = ref<Datas[]>([
     id: uuidv4(),
     disabled: true,
     level: 0,
-    fieldCode: "+数据",
+    fieldCode: "字段",
     fieldInputMethod: "输入方式",
     inputDataType: "1",
     mock: "Mock值",
@@ -578,6 +722,64 @@ const remove = (node: Node, data: Datas) => {
   const index = children.findIndex((d) => d.id === data.id);
   children.splice(index, 1);
 };
+
+const Assertion = ref({
+  id: "",
+  selector: "",
+  options: [
+    {
+      value: "be.visible",
+      label: "元素可见",
+    },
+  ],
+  asser: null,
+  content: "",
+  enable: true,
+  index : 0
+});
+
+const Assertions = ref([]);
+
+const assertionHandleAdd = () => {
+  Assertion.value.index = 0;
+  Assertion.value.id = "";
+  Assertion.value.selector = "";
+  Assertion.value.asser = null;
+  Assertion.value.content = "";
+  Assertion.value.enable = true;
+  dialogAssertionVisible.value = true;
+};
+
+const dialogAssertionConfirm = () => {
+  dialogAssertionVisible.value = false;
+  const asser = {
+      id: Assertion.value.id,
+      selector: Assertion.value.selector,
+      asser: Assertion.value.asser,
+      content: Assertion.value.content,
+      enable: Assertion.value.enable,
+    }
+  if (asser.id) {
+    Assertions.value[Assertion.value.index] = asser;
+  } else {
+    asser.id = uuidv4();
+    Assertions.value.push(asser);
+  }
+};
+
+const assertionHandleEdit = (index, asser) => {
+  Assertion.value.index = index;
+  Assertion.value.id = asser.id;
+  Assertion.value.selector = asser.selector;
+  Assertion.value.asser = asser.asser;
+  Assertion.value.content = asser.content;
+  Assertion.value.enable = asser.enable;
+  dialogAssertionVisible.value = true;
+};
+
+const assertionHandleDelete = (index, asser) => {
+  Assertions.value.splice(index, 1);
+};
 </script>
 
 <style scoped>
@@ -598,6 +800,16 @@ const remove = (node: Node, data: Datas) => {
   bottom: 0px;
   left: 0px;
 }
+
+/*
+:global(.el-dialog__body) {
+  height: 500px;
+}
+
+:global(.vue-flow__node) {
+  height: 40px;
+}
+*/
 
 .content1-left {
   position: absolute;
@@ -621,15 +833,25 @@ const remove = (node: Node, data: Datas) => {
   padding: 0px 5px;
 }
 
-.content1-data {
+.content1-data-for-fill {
   top: 0px;
   bottom: 50%;
   padding-top: 3px;
 }
 
-.content1-assertion {
+.content1-assertion-for-fill {
   margin-top: 5px;
   top: 50%;
+  bottom: 0px;
+}
+
+.content1-data {
+  top: 0px;
+  bottom: 100%;
+}
+
+.content1-assertion {
+  top: 0;
   bottom: 0px;
 }
 

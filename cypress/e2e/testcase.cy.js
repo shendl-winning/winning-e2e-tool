@@ -63,10 +63,10 @@ describe('Kelp E2E Testing', () => {
 						}
 					});
 					iframe.onIframeLoad(step.key).then((iframebody) => {
-						cy.exeAction(step.datas, step, iframebody)
+						cy.exeAction(step, iframebody)
 					});
 				} else {
-					cy.exeAction(step.datas, step)
+					cy.exeAction(step)
 				}
 			})
 		});

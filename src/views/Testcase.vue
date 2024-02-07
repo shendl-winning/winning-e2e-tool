@@ -33,7 +33,7 @@
                 <el-icon :class="['icon', stepActive == index ? 'active' : '']"
                   ><CaretRight
                 /></el-icon>
-                <el-icon class="icon"><Delete /></el-icon>
+                <el-icon class="icon" @click="stepDelete(index)"><Delete /></el-icon>
               </div>
             </div>
             <div class="tab1bottom">
@@ -41,7 +41,7 @@
             </div>
           </el-form>
         </div>
-        <div class="content1-right content1-data">
+        <div :class="rightDataClass">
           <el-tree
             :data="dataSource"
             node-key="id"
@@ -116,27 +116,38 @@
             </template>
           </el-tree>
         </div>
-        <div class="content1-right content1-assertion">
+        <div :class="rightAssertionClass">
           <el-button size="small" style="float: right; margin-top: 3px"
+          @click="assertionHandleAdd"
             >+断言</el-button
           >
-          <el-table :data="tableData">
+          <el-table :data="Assertions">
             <el-table-column label="标题">
               <template #default="scope">
-                {{ scope.row.name }}
+                判断（ {{ scope.row.selector }} ）, {{ scope.row.asser.label }}
+              </template>
+            </el-table-column>
+            <el-table-column label="是否启用" width="100">
+              <template #default="scope">
+                <el-switch
+                  v-model="scope.row.enable"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="不启用"
+                />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200">
               <template #default="scope">
                 <el-button
                   size="small"
-                  @click="handleEdit(scope.$index, scope.row)"
+                  @click="assertionHandleEdit(scope.$index, scope.row)"
                   >编辑</el-button
                 >
                 <el-button
                   size="small"
                   type="danger"
-                  @click="handleDelete(scope.$index, scope.row)"
+                  @click="assertionHandleDelete(scope.$index, scope.row)"
                   >删除</el-button
                 >
               </template>
@@ -183,6 +194,38 @@
       </span>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="dialogAssertionVisible" title="断言" width="30%">
+    <el-form>
+      <el-form-item label="元素选择器：" label-width="100px">
+        <el-input v-model="Assertion.selector" type="text" size="small" />
+      </el-form-item>
+      <el-form-item label="断言：" label-width="100px">
+        <el-select v-model="Assertion.asser" placeholder="Select" size="small">
+          <el-option
+            v-for="item in Assertion.options"
+            :key="item.value"
+            :label="item.label"
+            :value="item"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="内容：" label-width="100px">
+        <el-input v-model="Assertion.content" type="text" size="small" />
+      </el-form-item>
+      <el-form-item label="是否启用：" label-width="100px">
+        <el-switch v-model="Assertion.enable" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogAssertionVisible = false">取消</el-button>
+        <el-button type="primary" @click="dialogAssertionConfirm">
+          确定
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 <script setup lang="ts">
 import axios from "axios";
@@ -210,6 +253,9 @@ const execute = () => {
 };
 const activeName = ref("first");
 const autofocus = ref(null);
+const dialogAssertionVisible = ref(false);
+let rightDataClass = ref(["content1-right", "content1-data"]);
+let rightAssertionClass = ref(["content1-right", "content1-assertion"]);
 
 interface Datas {
   id: string;
@@ -226,8 +272,9 @@ interface Datas {
 interface Step {
   id: string;
   name: string;
+  action: string;
   check: boolean;
-  assertions: any[];
+  assertion: any[];
   datas: Datas[];
 }
 
@@ -270,9 +317,8 @@ onMounted(() => {
           });
 
           testcase.value.steps.map((step) => {
-            step.name = id_name[step.id]
+            step.name = id_name[step.id];
           });
-
         });
     })
     .catch((error) => {
@@ -289,12 +335,27 @@ const parentStepOptions = ref<Step[]>([]);
 const stepClickHandl = (step, index) => {
   stepActive.value = index;
   dataSource.value[0].children = step.datas;
+  Assertions.value = step.assertion;
+  if (step.action == "fill") {
+      rightDataClass.value = ["content1-right", "content1-data-for-fill"];
+      rightAssertionClass.value = [
+        "content1-right",
+        "content1-assertion-for-fill",
+      ];
+    } else {
+      rightDataClass.value = ["content1-right", "content1-data"];
+      rightAssertionClass.value = ["content1-right", "content1-assertion"];
+    }
 };
 
 const stepAdd = () => {
   nextstep.value = null;
   dialogVisible.value = true;
   parentStepOptions.value = [];
+};
+const stepDelete = (index) => {
+  testcase.value.steps.splice(index, 1);
+  stepActive.value = index - 1;
 };
 
 const remoteParentSteps = (query: string) => {
@@ -336,7 +397,6 @@ const remoteParentSteps = (query: string) => {
       loading.value = false;
       res.data.hits.hits.forEach((element) => {
         let step = element._source;
-        delete step.action;
         delete step.key;
         delete step.iframekey;
         delete step.parentid;
@@ -354,10 +414,22 @@ const stepAddhandlConfirm = () => {
   if (testcase.value.steps.length == 0) {
     testcase.value.steps = [];
   }
+  //console.log(nextstep.value);
   if (nextstep.value) {
     testcase.value.steps.push(nextstep.value);
     dataSource.value[0].children = nextstep.value.datas;
-    //加断言
+    //console.log(nextstep.value.assertion);
+    Assertions.value = nextstep.value.assertion;
+    if (nextstep.value.action == "fill") {
+      rightDataClass.value = ["content1-right", "content1-data-for-fill"];
+      rightAssertionClass.value = [
+        "content1-right",
+        "content1-assertion-for-fill",
+      ];
+    } else {
+      rightDataClass.value = ["content1-right", "content1-data"];
+      rightAssertionClass.value = ["content1-right", "content1-assertion"];
+    }
   }
   stepActive.value = testcase.value.steps.length - 1;
   dialogVisible.value = false;
@@ -446,7 +518,7 @@ const dataSource = ref<Datas[]>([
     id: uuidv4(),
     disabled: true,
     level: 0,
-    fieldCode: "+数据",
+    fieldCode: "字段",
     fieldInputMethod: "输入方式",
     inputDataType: "1",
     mock: "Mock值",
@@ -504,18 +576,63 @@ const remove = (node: Node, data: Datas) => {
   children.splice(index, 1);
 };
 
-interface Assertion {
-  name: string;
-}
+const Assertion = ref({
+  id: "",
+  selector: "",
+  options: [
+    {
+      value: "be.visible",
+      label: "元素可见",
+    },
+  ],
+  asser: null,
+  content: "",
+  enable: true,
+  index: 0,
+});
 
-const handleEdit = (index: number, row: Assertion) => {
-  console.log(index, row);
-};
-const handleDelete = (index: number, row: Assertion) => {
-  console.log(index, row);
+const Assertions = ref([]);
+
+const assertionHandleAdd = () => {
+  Assertion.value.index = 0;
+  Assertion.value.id = "";
+  Assertion.value.selector = "";
+  Assertion.value.asser = null;
+  Assertion.value.content = "";
+  Assertion.value.enable = true;
+  dialogAssertionVisible.value = true;
 };
 
-const tableData: Assertion[] = [];
+const dialogAssertionConfirm = () => {
+  dialogAssertionVisible.value = false;
+  const asser = {
+    id: Assertion.value.id,
+    selector: Assertion.value.selector,
+    asser: Assertion.value.asser,
+    content: Assertion.value.content,
+    enable: Assertion.value.enable,
+  };
+  if (asser.id) {
+    Assertions.value[Assertion.value.index] = asser;
+  } else {
+    asser.id = uuidv4();
+    Assertions.value.push(asser);
+  }
+};
+
+const assertionHandleEdit = (index, asser) => {
+  Assertion.value.index = index;
+  Assertion.value.id = asser.id;
+  Assertion.value.selector = asser.selector;
+  Assertion.value.asser = asser.asser;
+  Assertion.value.content = asser.content;
+  Assertion.value.enable = asser.enable;
+  dialogAssertionVisible.value = true;
+};
+
+const assertionHandleDelete = (index, asser) => {
+  Assertions.value.splice(index, 1);
+};
 </script>
 
 <style scoped>
@@ -592,15 +709,25 @@ const tableData: Assertion[] = [];
   padding: 0px 5px;
 }
 
-.content1-data {
+.content1-data-for-fill {
   top: 0px;
   bottom: 50%;
   padding-top: 3px;
 }
 
-.content1-assertion {
+.content1-assertion-for-fill {
   margin-top: 5px;
   top: 50%;
+  bottom: 0px;
+}
+
+.content1-data {
+  top: 0px;
+  bottom: 100%;
+}
+
+.content1-assertion {
+  top: 0;
   bottom: 0px;
 }
 

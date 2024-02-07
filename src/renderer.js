@@ -38,3 +38,4 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 const pinia = createPinia();
 app.use(router).use(pinia).mount('#app');
+

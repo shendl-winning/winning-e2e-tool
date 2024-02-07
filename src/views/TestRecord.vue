@@ -13,9 +13,9 @@
               <div>用例数： {{ scope.row.testcase.length }} 例</div>
               <div>总测试步骤：{{ scope.row.tests }} 步</div>
               <div>成功数：{{ scope.row.passes }} 步</div>
-              <div>等待数：{{ scope.row.pending }} 步</div>
+              <!-- <div>等待数：{{ scope.row.pending }} 步</div> -->
               <div>失败数：{{ scope.row.failures }} 步</div>
-              <div>通过百分比：{{ scope.row.passPercent }}%</div>
+              <div>通过百分比：{{ parseFloat(scope.row.passPercent.toFixed(2)) }}%</div>
             </template>
           </el-table-column>
           <el-table-column label="执行状态" width="100">
