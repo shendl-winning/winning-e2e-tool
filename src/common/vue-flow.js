@@ -116,6 +116,7 @@ export function vueFlowInit(
     });
 
     nodes.value.forEach((node) => {
+
         if (node.id == vue_flow_root) {
             node.type = "input";
         }

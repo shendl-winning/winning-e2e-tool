@@ -8,14 +8,13 @@
               {{ scope.row.name }}
             </template>
           </el-table-column>
-          <el-table-column label="所属分类">
-            <template #default="scope">
-              {{ scope.row.classifyname }}
-            </template>
-          </el-table-column>
           <el-table-column label="数据类型">
             <template #default="scope">
-              {{ scope.row.datatype }}
+              <span v-if="scope.row.datatype == 0" >字符串</span>
+              <span v-if="scope.row.datatype == 3" >数字</span>
+              <span v-if="scope.row.datatype == 4" >日期</span>
+              <span v-if="scope.row.datatype == 1" >对象</span>
+              <span v-if="scope.row.datatype == 2" >数组</span>
             </template>
           </el-table-column>
           <el-table-column label="脚本" width="400">
@@ -54,20 +53,16 @@
         <el-form-item label="名称:">
           <el-input v-model="inputmethod.name" type="text" />
         </el-form-item>
-        <el-form-item label="所属分类:">
-          <el-cascader
-            v-model="inputmethod.classifyname"
-            :options="classifyOptions"
-          />
-        </el-form-item>
         <el-form-item label="数据类型:">
           <el-select
             size="small"
             v-model="inputmethod.datatype"
           >
-            <el-option label="值" value="值" />
-            <el-option label="对象" value="对象" />
-            <el-option label="数组" value="数组" />
+            <el-option label="字符串" value="0" />
+            <el-option label="数字" value="3" />
+            <el-option label="日期" value="4" />
+            <el-option label="对象" value="1" />
+            <el-option label="数组" value="2" />
           </el-select>
         </el-form-item>
         <el-form-item label="脚本代码:">
@@ -99,7 +94,7 @@ import {
   Coin,
   Timer,
 } from "@element-plus/icons-vue";
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, inject, onMounted } from "vue";
 import type { TabsPaneContext } from "element-plus";
 import { v4 as uuidv4 } from "uuid";
 
@@ -108,6 +103,12 @@ import type { Editor, EditorConfiguration } from "codemirror";
 import "codemirror/addon/display/placeholder.js";
 import "codemirror/mode/javascript/javascript.js";
 import "codemirror/theme/night.css";
+import moment from "moment";
+
+let proid = inject("proid").value;
+let groupid = proid.id;
+let groupids = proid.groupids;
+let productid = proid.productid;
 
 const activeName = ref("first");
 
@@ -117,9 +118,11 @@ const handleLoad = () => {
   axios
     .post("http://172.16.7.148:9200/inputmethod/_doc/_search", {
       from: 0,
-      size: 100,
+      size: 10000,
       query: {
-        match_all: {},
+        term: {
+          product: productid
+        },
       },
       sort: {
         modificationdate: {
@@ -133,7 +136,7 @@ const handleLoad = () => {
         inputmethods.value.push({
           id: inputmethod.id,
           name: inputmethod.name, 
-          classifyname: inputmethod.classifyname.join("/"),
+          //classifyname: inputmethod.classifyname,
           datatype: inputmethod.datatype,
           method: inputmethod.method,
         });
@@ -145,7 +148,7 @@ const handleAdd = () => {
     id: uuidv4(),
     name: "",
     classifyname: "",
-    datatype: "值",
+    datatype: "",
     method: "",
   };
   dialogStat = "add";
@@ -187,18 +190,22 @@ let inputmethod = ref({
 const handleConfirm = () => {
   let action = "/_update";
   let param = {};
+  const currentDate = new Date();
+  // 使用moment.js格式化日期
+  const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
   let p = {
     id: inputmethod.value.id,
     name: inputmethod.value.name,
     classifyname: inputmethod.value.classifyname,
     datatype: inputmethod.value.datatype,
     method: inputmethod.value.method,
+    product:productid,
+    modificationdate:formattedDate
   };
   if (dialogStat == "add") {
     action = "/_create";
     param = p;
-    param["creationdate"] = "2023-12-11";
-    param["modificationdate"] = "2023-12-11 16:08:06";
+    param["creationdate"] = formattedDate;
   }
   if (dialogStat == "edit") {
     param["doc"] = p;

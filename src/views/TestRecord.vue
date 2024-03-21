@@ -15,7 +15,7 @@
               <div>成功数：{{ scope.row.passes }} 步</div>
               <!-- <div>等待数：{{ scope.row.pending }} 步</div> -->
               <div>失败数：{{ scope.row.failures }} 步</div>
-              <div>通过百分比：{{ parseFloat(scope.row.passPercent.toFixed(2)) }}%</div>
+              <div>通过百分比：{{ scope.row.passPercent ? parseFloat(scope.row.passPercent.toFixed(2)) : 0 }}%</div>
             </template>
           </el-table-column>
           <el-table-column label="执行状态" width="100">
@@ -104,9 +104,10 @@ import { videoPlay } from "vue3-video-play";
 import { ElLoading } from "element-plus";
 import moment from "moment";
 
+
 let proid = inject("proid").value;
 let testsuiteid = proid.id;
-let testsuitename = proid.name;
+
 const activeName = ref("first");
 const fullscreenLoading = ref(false);
 
@@ -148,14 +149,15 @@ const options = reactive({
 
 const openMochawesome = (row) => {
   dialogMochawesome.id = row.id;
+  console.log()
   dialogMochawesome.src =
-    "/src/assets/cypress/results/" + row.id + "/mochawesome.html";
+    Kelp.path("../../../../../cypress/results/" + row.id + "/mochawesome.html");
   dialogMochawesome.visible = true;
 };
 const openVideo = (row) => {
   dialogVideo.id = row.id;
   options.title = row.name;
-  options.src = "/src/assets/cypress/videos/" + row.id + "/testsuite.cy.js.mp4";
+  options.src = Kelp.path("../../../../../cypress/videos/" + row.id + "/testsuite.cy.js.mp4");
   dialogVideo.visible = true;
 };
 
@@ -238,11 +240,11 @@ const handleExecute = (row) => {
     background: "rgba(0, 0, 0, 0.4)",
   });
   Kelp.execute(
-    "yarn cypress run -s 'cypress/e2e/testsuite.cy.js' --config screenshotsFolder=src/assets/cypress/screenshots/" +
+    "yarn cypress run -s 'cypress/e2e/testsuite.cy.js' --config screenshotsFolder=cypress/screenshots/" +
       row.id +
-      ",videosFolder=src/assets/cypress/videos/" +
+      ",videosFolder=cypress/videos/" +
       row.id +
-      " --reporter-options reportDir=src/assets/cypress/results/" +
+      " --reporter-options reportDir=cypress/results/" +
       row.id +
       ",overwrite=true,html=true,json=true --env id=" +
       row.id
@@ -260,7 +262,7 @@ const handleExecute = (row) => {
 
 const updateTestrecord = (row, loading, executestat) => {
   axios
-    .get("/src/assets/cypress/results/" + row.id + "/mochawesome.json")
+    .get(Kelp.path("../../../../../cypress/results/" + row.id + "/mochawesome.json"))
     .then((res) => {
       const mochawesome = res.data;
       const currentDate = new Date();

@@ -1,8 +1,8 @@
 describe('Kelp E2E Testing', () => {
 
-	beforeEach("设置窗口大小", () => {
-		cy.viewport(1920, 1080);
-	})
+	// beforeEach("设置窗口大小", () => {
+	// 	cy.viewport(1920, 1080);
+	// })
 
 	let testcase = null;
 	Cypress.$.ajax({
@@ -27,7 +27,7 @@ describe('Kelp E2E Testing', () => {
 		cache: true,
 		dataType: "json",
 		contentType:'application/json;charset=utf-8',
-		data: '{"query": {"terms": {"id":['+ids+']}}}',
+		data: '{"from": 0, "size": 10000,"query": {"terms": {"id":['+ids+']}}}',
 		success: function (response) {
 			const id_name = {};
 			response.hits.hits.map((element) => {
@@ -40,6 +40,7 @@ describe('Kelp E2E Testing', () => {
 				step.action = id_name[step.id].action
 				step.key = id_name[step.id].key
 				step.iframekey = id_name[step.id].iframekey
+				step.wait= id_name[step.id].wait
 			});
 		},
 		error:function (error) {
@@ -52,6 +53,7 @@ describe('Kelp E2E Testing', () => {
 
 		testcase.steps.forEach((step) => {
 			it(step.name, () => {
+				cy.wait(step.wait ? step.wait : 1500);
 				if (step.iframekey) {
 					const iframesStr = step.iframekey;
 					let iframe = null;
@@ -59,10 +61,10 @@ describe('Kelp E2E Testing', () => {
 						if (!iframe) {
 							iframe = cy.get(iframeStr);
 						} else {
-							iframe = iframe.onIframeLoad(iframeStr).find(iframeStr);
+							iframe = iframe.onIframeLoad().find(iframeStr);
 						}
 					});
-					iframe.onIframeLoad(step.key).then((iframebody) => {
+					iframe.onIframeLoad().then((iframebody) => {
 						cy.exeAction(step, iframebody)
 					});
 				} else {

@@ -42,6 +42,7 @@
     "@vue-flow/controls": "^1.1.0",
     "@vue-flow/core": "^1.29.1",
     "@vue-flow/minimap": "^1.4.0",
+    "@vue-flow/node-toolbar": "^1.1.0",
     "axios": "^1.6.2",
     "codemirror": "^5.65.16",
     "codemirror-editor-vue3": "^2.4.1",

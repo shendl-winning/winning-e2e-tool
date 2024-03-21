@@ -10,7 +10,6 @@ module.exports = defineConfig({
   },
   reporter: 'mochawesome',
   reporterOptions:{
-		reportDir: 'cypress/abc/results/',
 		overwrite: true,
 		html: true,
 		json: false,
@@ -18,4 +17,7 @@ module.exports = defineConfig({
   video:true,
   videoCompression:10,
   trashAssetsBeforeRuns:true,
+  defaultCommandTimeout:30000,
+  "viewportWidth": 1920,
+  "viewportHeight": 1080
 });

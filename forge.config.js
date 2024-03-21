@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 module.exports = {
   publishers: [
@@ -17,31 +18,46 @@ module.exports = {
   ],
   packagerConfig: {
       icon: path.join(__dirname, 'src/assets/image/bitbug_favicon'),
-      extraResource:path.join(__dirname, 'node_modules/.bin')
+      //extraResource:path.join(__dirname, 'node_modules/.bin')
   },
   rebuildConfig: {},
   makers: [
-    {
-      name: '@electron-forge/maker-squirrel',
-      config: {
-        iconUrl : path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
-        setupIcon: path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
-        loadingGif:path.join(__dirname, 'src/assets/image/loading.gif')
-      },
-    },
+    // {
+    //   name: '@electron-forge/maker-squirrel',
+    //   config: {
+    //     iconUrl : path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
+    //     setupIcon: path.join(__dirname, 'src/assets/image/bitbug_favicon.ico'),
+    //     loadingGif:path.join(__dirname, 'src/assets/image/loading.gif')
+    //   },
+    // },
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
     },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
+    // {
+    //   name: '@electron-forge/maker-deb',
+    //   config: {},
+    // },
+    // {
+    //   name: '@electron-forge/maker-rpm',
+    //   config: {},
+    // },
   ],
+  hooks: {
+    packageAfterCopy: async (config, buildPath, electronVersion, platform, arch) => {
+      var src = path.join(__dirname, 'cypress');
+      var dst = path.join(buildPath, '../../cypress');
+      fs.cpSync(src, dst, {recursive: true});
+      var src = path.join(__dirname, 'node_modules');
+      var dst = path.join(buildPath, '../../node_modules');
+      fs.cpSync(src, dst, {recursive: true});
+      var src = path.join(__dirname, 'package.json');
+      var dst = path.join(buildPath, '../../package.json');
+      fs.cpSync(src, dst, {recursive: true});
+      var src = path.join(__dirname, 'cypress.config.js');
+      var dst = path.join(buildPath, '../../cypress.config.js');
+      fs.cpSync(src, dst, {recursive: true});
+    }
+  },
   plugins: [
     {
       name: '@electron-forge/plugin-vite',

@@ -1,6 +1,8 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 var exec = require('child_process').exec;
+const bin = require('path');
+
 const { contextBridge } = require('electron')
 
 contextBridge.exposeInMainWorld('Kelp', {
@@ -15,5 +17,8 @@ contextBridge.exposeInMainWorld('Kelp', {
       });
 
     })
+  },
+  path: (dir) => {
+    return app.isPackaged ? bin.join(__dirname, dir) : dir;
   }
 });

@@ -33,10 +33,14 @@
           </el-table-column>
           <el-table-column label="操作" width="150">
             <template #default="scope">
-              <el-button size="small" @click="handleEdit(scope.row)"
+              <el-button
+                size="small"
+                @click="handleEdit(scope.row)"
+                v-if="scope.row.group == groupid"
                 >编辑</el-button
               >
               <el-button
+                v-if="scope.row.group == groupid"
                 size="small"
                 type="danger"
                 @click="handleDelete(scope.row)"
@@ -88,6 +92,7 @@
             <el-form-item label="上级节点">
               <el-select
                 v-model="step.parentid"
+                value-key="value"
                 multiple
                 size="small"
                 filterable
@@ -104,6 +109,9 @@
                   :value="item.step"
                 />
               </el-select>
+            </el-form-item>
+            <el-form-item label="等待时间:">
+              <el-input-number v-model="step.wait" step="500" size="small"/>
             </el-form-item>
           </el-form>
           <div style="text-align: center">
@@ -129,6 +137,7 @@
                   />
                   <el-select
                     v-model="data.fieldInputMethod"
+                    value-key="value"
                     size="small"
                     filterable
                     remote
@@ -137,7 +146,7 @@
                     :remote-method="remoteInputMethod"
                     :loading="loading"
                     :disabled="data.disabled"
-                    style="width: 120px"
+                    style="width: 100px"
                     @change="
                       (val) => {
                         changeInputMethod(val, data);
@@ -157,20 +166,22 @@
                     v-model="data.inputDataType"
                     :disabled="data.disabled"
                   >
-                    <el-option label="值" value="0" />
+                    <el-option label="字符串" value="0" />
+                    <el-option label="数字" value="3" />
+                    <el-option label="日期" value="4" />
                     <el-option label="对象" value="1" />
                     <el-option label="数组" value="2" />
                   </el-select>
                   <el-input
                     size="small"
                     v-model="data.mock"
-                    style="width: 150px"
+                    style="width: 140px"
                     :disabled="data.disabled"
                   />
                   <el-input
                     size="small"
                     v-model="data.fieldCname"
-                    style="width: 120px"
+                    style="width: 100px"
                     :disabled="data.disabled"
                   />
                 </span>
@@ -196,7 +207,8 @@
           <el-table :data="Assertions">
             <el-table-column label="标题">
               <template #default="scope">
-                判断（ {{ scope.row.selector }} ）, {{ scope.row.asser.label }}
+                {{ scope.row.title }}{{ scope.row.asser.label }}
+                {{ scope.row.content ? '"' + scope.row.content + '"' : "" }}
               </template>
             </el-table-column>
             <el-table-column label="是否启用" width="100">
@@ -247,8 +259,34 @@
       <VueFlow>
         <Background />
         <Controls position="top-right"></Controls>
-        <template>
-          <FlowNodeGroup />
+        <template #node-default="nodeProps">
+          <ToolbarNode
+            :id="nodeProps.id"
+            :data="nodeProps.data"
+            :vueflowStartId="vueflowStartId"
+            :vueflowEndId="vueflowEndId"
+            @updateVueflowStartId="updateVueflowStartId"
+            @updateVueflowEndId="updateVueflowEndId"
+            :label="nodeProps.label"
+          />
+        </template>
+        <template #node-input="nodeProps">
+          <ToolbarInputNode
+            :id="nodeProps.id"
+            :data="nodeProps.data"
+            :vueflowStartId="vueflowStartId"
+            @updateVueflowStartId="updateVueflowStartId"
+            :label="nodeProps.label"
+          />
+        </template>
+        <template #node-output="nodeProps">
+          <ToolbarOutputNode
+            :id="nodeProps.id"
+            :data="nodeProps.data"
+            @updateVueflowEndId="updateVueflowEndId"
+            :vueflowEndId="vueflowEndId"
+            :label="nodeProps.label"
+          />
         </template>
       </VueFlow>
     </div>
@@ -256,6 +294,9 @@
 
   <el-dialog v-model="dialogAssertionVisible" title="断言" width="30%">
     <el-form>
+      <el-form-item label="名称：" label-width="100px">
+        <el-input v-model="Assertion.title" type="text" size="small" />
+      </el-form-item>
       <el-form-item label="元素选择器：" label-width="100px">
         <el-input v-model="Assertion.selector" type="text" size="small" />
       </el-form-item>
@@ -269,8 +310,26 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="内容：" label-width="100px">
+      <el-form-item
+        label="内容："
+        label-width="100px"
+        v-if="
+          Assertion.asser &&
+          (Assertion.asser.value.indexOf('contain') != -1 ||
+            Assertion.asser.value.indexOf('value') != -1)
+        "
+      >
         <el-input v-model="Assertion.content" type="text" size="small" />
+      </el-form-item>
+      <el-form-item label="Iframe标识:">
+        <el-cascader
+          v-model="Assertion.iframekey"
+          :options="iframekeyOptions"
+          :props="props1"
+          clearable
+          :show-all-levels="false"
+          size="small"
+        />
       </el-form-item>
       <el-form-item label="是否启用：" label-width="100px">
         <el-switch v-model="Assertion.enable" />
@@ -289,14 +348,16 @@
 <script setup lang="ts">
 import axios from "axios";
 import { ref, reactive, inject, onMounted } from "vue";
-import type { TabsPaneContext } from "element-plus";
+import { notificationEmits, TabsPaneContext } from "element-plus";
 import type Node from "element-plus/es/components/tree/src/model/node";
 import { v4 as uuidv4 } from "uuid";
 import { VueFlow, useVueFlow, Position, getRectOfNodes } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
-import FlowNodeGroup from "@/views/FlowNodeGroup.vue";
+import ToolbarNode from "@/views/ToolbarNode.vue";
+import ToolbarInputNode from "@/views/ToolbarInputNode.vue";
+import ToolbarOutputNode from "@/views/ToolbarOutputNode.vue";
 import { vueFlowSetRoot, vueFlowInit } from "@/common/vue-flow";
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
@@ -304,7 +365,11 @@ import "@vue-flow/controls/dist/style.css";
 import "@vue-flow/minimap/dist/style.css";
 import moment from "moment";
 
-const proid = inject("proid");
+let proid = inject("proid").value;
+let groupid = proid.id;
+let groupids = proid.groupids;
+let productid = proid.productid;
+
 const activeName = ref("first");
 const editableTab = ref(false);
 const editableTabtitle = ref("");
@@ -312,8 +377,63 @@ const dialogVisible = ref(false);
 const dialogAssertionVisible = ref(false);
 let rightDataClass = ref(["content1-right", "content1-data"]);
 let rightAssertionClass = ref(["content1-right", "content1-assertion"]);
+let vueflowStartId = ref("");
+let vueflowEndId = ref("");
+let vueflowFamily = ref({});
+let vueflowLinks = ref([]);
+let vueflowLinksIndex = ref(null);
+
+const updateVueflowStartId = (value) => {
+  vueflowStartId.value = value;
+  if (vueflowEndId.value) {
+    setLinkEdgesStyle();
+  }
+};
+const updateVueflowEndId = (value) => {
+  vueflowEndId.value = value;
+  if (vueflowStartId.value) {
+    setLinkEdgesStyle();
+  }
+};
+const vueflowLinksReduction = (index) => {
+  vueflowLinks.value[index] &&
+    vueflowLinks.value[index].forEach((edgeid) => {
+      const edge = findEdge(edgeid);
+      edge.animated = false;
+      edge.style = { stroke: "#000000" };
+    });
+};
+
+const setLinkEdgesStyle = () => {
+  vueflowLinksReduction(0);
+  vueflowLinks.value = [];
+  setLinkEdgesAnimated(vueflowEndId.value, []);
+  vueflowLinks.value[0] &&
+    vueflowLinks.value[0].forEach((edgeid) => {
+      const edge = findEdge(edgeid);
+      edge.animated = true;
+      edge.style = { stroke: "#FF0000", "stroke-width": "7" };
+    });
+};
+
+const setLinkEdgesAnimated = (value, edges) => {
+  const edgeInnerArray = edges.slice();
+  const arr = vueflowFamily.value[value];
+  arr.forEach((element, index) => {
+    const parentid = element.parentid;
+    const edgeid = element.edgeid;
+    edgeInnerArray.push(edgeid);
+    if (parentid == vueflowStartId.value) {
+      vueflowLinks.value.push(edgeInnerArray);
+    } else {
+      setLinkEdgesAnimated(parentid, edgeInnerArray);
+    }
+  });
+};
 
 const {
+  findEdge,
+  findNode,
   getNode,
   getNodes,
   addNodes,
@@ -364,7 +484,7 @@ interface Step {
   datas?: Datas[];
 }
 
-let steps = ref<Step[]>([]);
+let steps = ref([]);
 let dialogStat = "";
 
 const handleLoad = () => {
@@ -372,9 +492,11 @@ const handleLoad = () => {
   axios
     .post("http://172.16.7.148:9200/step/_doc/_search", {
       from: 0,
-      size: 100,
+      size: 10000,
       query: {
-        match_all: {},
+        terms: {
+          group: groupids,
+        },
       },
       sort: {
         modificationdate: {
@@ -392,9 +514,11 @@ const handleLoad = () => {
           key: step.key,
           iframekey: step.iframekey,
           parentid: step.parentid,
+          group:step.group,
           assertion: [],
           datas: [],
         });
+
         if (step.parentid.length == 0) {
           vueFlowSetRoot(step.id);
         }
@@ -402,12 +526,20 @@ const handleLoad = () => {
           id: step.id,
           label: step.name,
           position: { x: 0, y: 0 },
+          data: { toolbarVisible: "none" },
           sourcePosition: Position.Right,
           targetPosition: Position.Left,
         });
+
+        vueflowFamily.value[step.id] = [];
         step.parentid.forEach((parent) => {
+          const uuid = uuidv4();
+          vueflowFamily.value[step.id].push({
+            parentid: parent.value,
+            edgeid: uuid,
+          });
           addEdges({
-            id: uuidv4(),
+            id: uuid,
             source: parent.value,
             target: step.id,
           });
@@ -436,6 +568,7 @@ const handleAdd = () => {
     parentid: [],
     assertion: [],
     datas: [],
+    wait:null
   };
   dataSource.value[0].children = [];
   dialogStat = "add";
@@ -455,6 +588,7 @@ const handleEdit = (row) => {
     step.value.parentid = im.parentid;
     step.value.assertion = im.assertion;
     step.value.datas = im.datas;
+    step.value.wait = im.wait;
     dataSource.value[0].children = im.datas;
     Assertions.value = im.assertion;
     dialogStat = "edit";
@@ -472,7 +606,7 @@ const handleDelete = (row) => {
 
 handleLoad();
 
-let step = ref<Step>({
+let step = ref({
   id: "",
   name: "",
   action: "",
@@ -481,25 +615,30 @@ let step = ref<Step>({
   parentid: [],
   assertion: [],
   datas: [],
+  wait:null
 });
 
 const actionOptions = [
   {
     value: "visit",
-    label: "visit",
+    label: "系统访问",
   },
   {
     value: "fill",
-    label: "fill",
+    label: "表单填充",
   },
   {
     value: "click",
-    label: "click",
+    label: "鼠标单击",
   },
   {
     value: "hover",
-    label: "hover",
+    label: "鼠标悬浮",
   },
+  {
+    value: "dbclick",
+    label: "鼠标双击",
+  }
 ];
 
 const actionChange = (value) => {
@@ -521,11 +660,11 @@ const props1 = {
 
 const iframekeyOptions = [
   {
-    value: "iframe[data-id=1002]",
+    value: "iframe:visible",
     label: "Tab对应的ifarme",
     children: [
       {
-        value: "iframe[id=prmIframe]",
+        value: "iframe:visible",
         label: "列表、表单对应的ifarme",
       },
     ],
@@ -547,8 +686,19 @@ const remoteParentSteps = (query: string) => {
         from: 0,
         size: 10,
         query: {
-          wildcard: {
-            name: "*" + query + "*",
+          bool: {
+            must: [
+              {
+                terms: {
+                  group: groupids,
+                },
+              },
+              {
+                wildcard: {
+                  name: "*" + query + "*",
+                },
+              },
+            ],
           },
         },
         sort: {
@@ -589,6 +739,9 @@ const handleConfirm = () => {
     parentid: step.value.parentid,
     assertion: Assertions.value,
     datas: dataSource.value[0].children,
+    product: productid,
+    group: groupid,
+    wait: step.value.wait,
   };
   const currentDate = new Date();
   // 使用moment.js格式化日期
@@ -630,8 +783,19 @@ const remoteInputMethod = (query: string) => {
         from: 0,
         size: 100,
         query: {
-          wildcard: {
-            name: "*" + query + "*",
+          bool: {
+            must: [
+              {
+                term: {
+                  product: productid,
+                },
+              },
+              {
+                wildcard: {
+                  name: "*" + query + "*",
+                },
+              },
+            ],
           },
         },
         sort: {
@@ -731,11 +895,69 @@ const Assertion = ref({
       value: "be.visible",
       label: "元素可见",
     },
+    {
+      value: "be.hidden",
+      label: "元素不可见",
+    },
+    {
+      value: "be.exist",
+      label: "元素存在",
+    },
+    {
+      value: "not.be.exist",
+      label: "元素不存在",
+    },
+    {
+      value: "be.checked",
+      label: "元素选中",
+    },
+    {
+      value: "not.be.checked",
+      label: "元素未选中",
+    },
+    {
+      value: "be.selected",
+      label: "元素已选择",
+    },
+    {
+      value: "not.be.selected",
+      label: "元素未选择",
+    },
+    {
+      value: "be.empty",
+      label: "元素为空",
+    },
+    {
+      value: "not.be.empty",
+      label: "元素不为空",
+    },
+    {
+      value: "be.enabled",
+      label: "元素可用",
+    },
+    {
+      value: "be.disabled",
+      label: "元素不可用",
+    },
+    {
+      value: "contain",
+      label: "元素包含文本",
+    },
+    {
+      value: "not.contain",
+      label: "元素不包含文本",
+    },
+    {
+      value: "have.value",
+      label: "元值素等于",
+    },
   ],
   asser: null,
   content: "",
   enable: true,
-  index : 0
+  title: "",
+  iframekey: "",
+  index: 0,
 });
 
 const Assertions = ref([]);
@@ -747,18 +969,22 @@ const assertionHandleAdd = () => {
   Assertion.value.asser = null;
   Assertion.value.content = "";
   Assertion.value.enable = true;
+  Assertion.value.title = "";
+  Assertion.value.iframekey = step.value.iframekey;
   dialogAssertionVisible.value = true;
 };
 
 const dialogAssertionConfirm = () => {
   dialogAssertionVisible.value = false;
   const asser = {
-      id: Assertion.value.id,
-      selector: Assertion.value.selector,
-      asser: Assertion.value.asser,
-      content: Assertion.value.content,
-      enable: Assertion.value.enable,
-    }
+    id: Assertion.value.id,
+    selector: Assertion.value.selector,
+    asser: Assertion.value.asser,
+    content: Assertion.value.content,
+    enable: Assertion.value.enable,
+    title: Assertion.value.title,
+    iframekey: Assertion.value.iframekey,
+  };
   if (asser.id) {
     Assertions.value[Assertion.value.index] = asser;
   } else {
@@ -774,6 +1000,8 @@ const assertionHandleEdit = (index, asser) => {
   Assertion.value.asser = asser.asser;
   Assertion.value.content = asser.content;
   Assertion.value.enable = asser.enable;
+  Assertion.value.title = asser.title;
+  Assertion.value.iframekey = asser.iframekey;
   dialogAssertionVisible.value = true;
 };
 
@@ -783,6 +1011,14 @@ const assertionHandleDelete = (index, asser) => {
 </script>
 
 <style scoped>
+::-webkit-scrollbar {
+  width: 2px; /* 宽度为10px */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+}
+
 .content {
   position: relative;
   width: 100%;
@@ -799,22 +1035,13 @@ const assertionHandleDelete = (index, asser) => {
   right: 0px;
   bottom: 0px;
   left: 0px;
+  overflow-y: auto;
 }
-
-/*
-:global(.el-dialog__body) {
-  height: 500px;
-}
-
-:global(.vue-flow__node) {
-  height: 40px;
-}
-*/
 
 .content1-left {
   position: absolute;
   top: 0px;
-  right: 70%;
+  right: 65%;
   left: 0px;
   bottom: 0px;
   margin-right: 5px;
@@ -826,7 +1053,7 @@ const assertionHandleDelete = (index, asser) => {
 .content1-right {
   position: absolute;
   right: 0px;
-  left: 30%;
+  left: 35%;
   bottom: 50%;
   border: 1px solid #ccc;
   overflow: scroll;
@@ -853,14 +1080,6 @@ const assertionHandleDelete = (index, asser) => {
 .content1-assertion {
   top: 0;
   bottom: 0px;
-}
-
-::-webkit-scrollbar {
-  width: 2px; /* 宽度为10px */
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: #ccc;
 }
 
 .custom-tree-node {

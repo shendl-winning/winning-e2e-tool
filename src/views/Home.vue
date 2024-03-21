@@ -19,10 +19,12 @@ const  rightComponent = shallowRef(rightDefault)
 let proid = ref({});
 provide('proid', proid);
 const data = ref();
-const rightComponentHandle = (type, id, name) => {
+const rightComponentHandle = (type, id, name, groupids, productid) => {
     proid.value = {
       "id" : id,
-      "name" : name
+      "name" : name,
+      "groupids" : groupids,
+      "productid" : productid
     };
     switch(type){
       case 5: 
@@ -31,13 +33,17 @@ const rightComponentHandle = (type, id, name) => {
       break;
       case 3: 
       data.value = Date.now();
+      rightComponent.value = stepConfig;
+      break;
+      case 31: 
+      data.value = Date.now();
       rightComponent.value = testRecord;
       break;
-      case 2: 
+      case 4: 
       data.value = Date.now();
       rightComponent.value = stepConfig;
       break;
-      case 1: 
+      case 2: 
       data.value = Date.now();
       rightComponent.value = inputMethodConfig;
       break;

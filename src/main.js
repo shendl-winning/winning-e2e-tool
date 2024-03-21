@@ -1,33 +1,33 @@
 const { app, BrowserWindow, autoUpdater, dialog  } = require('electron');
 const path = require('path');
+// const { updateElectronApp, UpdateSourceType } = require('update-electron-app')
 
-const { updateElectronApp, UpdateSourceType } = require('update-electron-app')
-updateElectronApp({
-  updateSource: {
-    type: UpdateSourceType.ElectronPublicUpdateService,
-    repo: 'shendl-winning/winning-e2e-tool',
-    host: 'https://update.electronjs.org'
-  }
-})
+// updateElectronApp({
+//   updateSource: {
+//     type: UpdateSourceType.ElectronPublicUpdateService,
+//     repo: 'shendl-winning/winning-e2e-tool',
+//     host: 'https://update.electronjs.org'
+//   }
+// })
 
-autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
-  const dialogOpts = {
-    type: 'info',
-    buttons: ['重启', '稍后'],
-    title: '应用更新',
-    message: process.platform === 'win32' ? releaseNotes : releaseName,
-    detail: '应用已经更新了，请重启'
-  }
+// autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
+//   const dialogOpts = {
+//     type: 'info',
+//     buttons: ['重启', '稍后'],
+//     title: '应用更新',
+//     message: process.platform === 'win32' ? releaseNotes : releaseName,
+//     detail: '应用已经更新了，请重启'
+//   }
 
-  dialog.showMessageBox(dialogOpts).then((returnValue) => {
-    if(returnValue.response === 0) autoUpdater.quitAnd()
-  })
-});
+//   dialog.showMessageBox(dialogOpts).then((returnValue) => {
+//     if(returnValue.response === 0) autoUpdater.quitAnd()
+//   })
+// });
 
-autoUpdater.on('error', message => {
-  console.error('There was a problem updating the application')
-  console.error(message)
-})
+// autoUpdater.on('error', message => {
+//   console.error('There was a problem updating the application')
+//   console.error(message)
+// })
 
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -62,7 +62,9 @@ const createWindow = () => {
   }
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  if(!app.isPackaged){
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 // This method will be called when Electron has finished

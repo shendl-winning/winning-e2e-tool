@@ -24,10 +24,10 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 import Mock from 'mockjs'
-import 'cypress-iframe'
 
 let inputs = {};
-Cypress.Commands.add('exeInput', (data, body) => {
+
+const fillMock = (data, body, callback) => {
     let $body = body ? cy.wrap(body) : cy.get("body")
     if (!inputs[data.fieldInputMethod.value]) {
         Cypress.$.ajax({
@@ -40,13 +40,62 @@ Cypress.Commands.add('exeInput', (data, body) => {
             }
         });
     }
-    new Function('$body', 'name', 'mock', inputs[data.fieldInputMethod.value])($body, data.fieldCode, Mock.mock(data.mock));
+    const regex = /\W/g; // 正则表达式
+    if(regex.test(data.mock) && data.inputDataType == "3"){
+        const matches = data.mock.match(regex);
+        data.mock = data.mock.split(matches[0])
+    }
+    new Function('$body', 'name', 'mock', 'callback', inputs[data.fieldInputMethod.value])($body, data.fieldCode, Mock.mock(data.mock), callback);
+}
+const fillMockRecursion = (data, body) => {
+    
+    if(data.inputDataType == "0" || data.inputDataType == "3" || data.inputDataType == "4"){
+        fillMock(data, body);
+    }
+    if(data.inputDataType == "1"){
+        fillMock(data, body, (inner) => {
+            data.children.forEach((data1) => {
+                fillMockRecursion(data1, inner?inner:body);
+            });
+        });
+    }
+    if(data.inputDataType == "2"){
+        data.children.forEach((data1) => {
+            fillMock(data, body, (inner) => {
+                data1.children.forEach((data2) => {
+                    fillMockRecursion(data2, inner?inner:body);
+                });
+            });
+        });
+    }
+}
+Cypress.Commands.add('exeInput', (data, body) => {
+    fillMockRecursion(data, body);
 });
+
+Cypress.Commands.add('exeAsser', (asser, body) => {
+
+    switch (asser.asser.value) {
+        case "contain":
+            body ? cy.wrap(body).find(asser.selector).should(asser.asser.value, asser.content) : cy.get(asser.selector).should(asser.asser.value, asser.content);
+            break;
+        case "not.contain":
+            body ? cy.wrap(body).find(asser.selector).should(asser.asser.value, asser.content) : cy.get(asser.selector).should(asser.asser.value, asser.content);
+            break;
+        case "have.value":
+            body ? cy.wrap(body).find(asser.selector).should(asser.asser.value, asser.content) : cy.get(asser.selector).should(asser.asser.value, asser.content);
+            break;
+        default:
+            body ? cy.wrap(body).find(asser.selector).should(asser.asser.value) : cy.get(asser.selector).should(asser.asser.value);
+    }
+
+})
 
 
 Cypress.Commands.add('exeAction', (step, body) => {
 
     const action = new Cypress.Promise(resolve => {
+
         switch (step.action) {
             case "visit":
                 cy.visit(step.key);
@@ -57,44 +106,54 @@ Cypress.Commands.add('exeAction', (step, body) => {
                 });
                 break;
             case "click":
-                body ? cy.wrap(body).find(step.key).realClick() : cy.get(step.key).realClick();
+                body ? cy.wrap(body).find(step.key).scrollIntoView().click({force: true}) : cy.get(step.key).scrollIntoView().click({force: true});
                 break;
             case "hover":
-                body ? cy.wrap(body).find(step.key).realHover() : cy.get(step.key).realMouseUp();
+                body ? cy.wrap(body).find(step.key).scrollIntoView().realHover() : cy.get(step.key).scrollIntoView().realHover();
                 break;
-        } 
+            case "dbclick":
+                body ? cy.wrap(body).find(step.key).scrollIntoView().dbclick({force: true}) : cy.get(step.key).scrollIntoView().dbclick({force: true});
+                break;
+                
+        }
         resolve(true);
     });
 
     action.then(() => {
         step.assertion.forEach((asser) => {
             if (asser.enable) {
-                body ? cy.wrap(body).find(asser.selector).should(asser.asser) : cy.get(asser.selector).should(asser.asser.value);
+                cy.wait(500);
+                if (asser.iframekey) {
+					const iframesStr = asser.iframekey;
+					let iframe = null;
+					iframesStr.forEach((iframeStr) => {
+						if (!iframe) {
+							iframe = cy.get(iframeStr);
+						} else {
+							iframe = iframe.onIframeLoad().find(iframeStr);
+						}
+					});
+					iframe.onIframeLoad().then((iframebody) => {
+						cy.exeAsser(asser, iframebody)
+					});
+				} else {
+					cy.exeAction(asser)
+				}
             }
         });
     });
 
 });
 
-
-//等待iframe加载完，并返回jq的body对象 
-Cypress.Commands.add('getIframeBody', { prevSubject: 'element' }, $iframe => {
-    // 定义getIframeBody方法
-    // and retry until the body element is not empty
-    return cy
-        .get('iframe', { log: false })
-        .its('0.contentDocument.body', { log: false }).should('not.be.empty')
-        .then((body) => cy.wrap(body, { log: false }))
+Cypress.Commands.add('onIframeLoad', { prevSubject: 'element' }, ($iframe) => {
+    return new Cypress.Promise(resolve => {
+        if($iframe.contents().find("body").children().length > 0){
+          resolve($iframe.contents());
+        }else{
+           $iframe.on('load', () => {
+            resolve($iframe.contents());
+           });
+        }
+    });
 });
 
-Cypress.Commands.add('onIframeLoad', { prevSubject: 'element' }, ($iframe, nextkey) => {
-    if ($iframe.contents().find(nextkey).length > 0) {
-        return cy.wrap($iframe.contents())
-    } else {
-        return new Cypress.Promise(resolve => {
-            $iframe.on('load', () => {
-                resolve($iframe.contents());
-            });
-        });
-    }
-});
