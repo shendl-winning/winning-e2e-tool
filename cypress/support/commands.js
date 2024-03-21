@@ -108,11 +108,14 @@ Cypress.Commands.add('exeAction', (step, body) => {
             case "click":
                 body ? cy.wrap(body).find(step.key).scrollIntoView().click({force: true}) : cy.get(step.key).scrollIntoView().click({force: true});
                 break;
-            case "hover":
+            case "realClick":
+                body ? cy.wrap(body).find(step.key).scrollIntoView().realClick({force: true}) : cy.get(step.key).scrollIntoView().realClick({force: true});
+                break;
+            case "realHover":
                 body ? cy.wrap(body).find(step.key).scrollIntoView().realHover() : cy.get(step.key).scrollIntoView().realHover();
                 break;
-            case "dbclick":
-                body ? cy.wrap(body).find(step.key).scrollIntoView().dbclick({force: true}) : cy.get(step.key).scrollIntoView().dbclick({force: true});
+            case "dblclick":
+                body ? cy.wrap(body).find(step.key).scrollIntoView().dblclick({force: true}) : cy.get(step.key).scrollIntoView().dblclick({force: true});
                 break;
                 
         }

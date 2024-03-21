@@ -632,11 +632,15 @@ const actionOptions = [
     label: "鼠标单击",
   },
   {
-    value: "hover",
-    label: "鼠标悬浮",
+    value: "realClick",
+    label: "鼠标真实单击",
   },
   {
-    value: "dbclick",
+    value: "realHover",
+    label: "鼠标真实悬浮",
+  },
+  {
+    value: "dblclick",
     label: "鼠标双击",
   }
 ];
