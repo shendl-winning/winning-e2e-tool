@@ -25,9 +25,10 @@
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 import Mock from 'mockjs'
 
+
 let inputs = {};
 
-const fillMock = (data, body, callback) => {
+const fillMock = (data, body, environment, callback) => {
     let $body = body ? cy.wrap(body) : cy.get("body")
     if (!inputs[data.fieldInputMethod.value]) {
         Cypress.$.ajax({
@@ -45,35 +46,35 @@ const fillMock = (data, body, callback) => {
         const matches = data.mock.match(regex);
         data.mock = data.mock.split(matches[0])
     }
-    new Function('$body', 'name', 'mock', 'callback', inputs[data.fieldInputMethod.value])($body, data.fieldCode, Mock.mock(data.mock), callback);
+    new Function('$body', 'name', 'mock', 'callback', inputs[data.fieldInputMethod.value])($body, data.fieldCode, Mock.mock(environment[data.mock] || data.mock), callback);
 }
-const fillMockRecursion = (data, body) => {
+const fillMockRecursion = (data, body, environment) => {
     
     if(data.inputDataType == "0" || data.inputDataType == "3" || data.inputDataType == "4"){
-        fillMock(data, body);
+        fillMock(data, body, environment);
     }
     if(data.inputDataType == "1"){
-        fillMock(data, body, (inner) => {
+        fillMock(data, body, environment, (inner) => {
             data.children.forEach((data1) => {
-                fillMockRecursion(data1, inner?inner:body);
+                fillMockRecursion(data1, inner?inner:body, environment);
             });
         });
     }
     if(data.inputDataType == "2"){
         data.children.forEach((data1) => {
-            fillMock(data, body, (inner) => {
+            fillMock(data, body, environment, (inner) => {
                 data1.children.forEach((data2) => {
-                    fillMockRecursion(data2, inner?inner:body);
+                    fillMockRecursion(data2, inner?inner:body, environment);
                 });
             });
         });
     }
 }
-Cypress.Commands.add('exeInput', (data, body) => {
-    fillMockRecursion(data, body);
+Cypress.Commands.add('exeInput', (data, body, environment) => {
+    fillMockRecursion(data, body, environment);
 });
 
-Cypress.Commands.add('exeAsser', (asser, body) => {
+Cypress.Commands.add('exeAsser', (asser, body, environment) => {
 
     switch (asser.asser.value) {
         case "contain":
@@ -85,6 +86,9 @@ Cypress.Commands.add('exeAsser', (asser, body) => {
         case "have.value":
             body ? cy.wrap(body).find(asser.selector).should(asser.asser.value, asser.content) : cy.get(asser.selector).should(asser.asser.value, asser.content);
             break;
+        case "have.length":
+            body ? cy.wrap(body).find(asser.selector).should(asser.asser.value, asser.content) : cy.get(asser.selector).should(asser.asser.value, asser.content);
+            break;
         default:
             body ? cy.wrap(body).find(asser.selector).should(asser.asser.value) : cy.get(asser.selector).should(asser.asser.value);
     }
@@ -92,17 +96,17 @@ Cypress.Commands.add('exeAsser', (asser, body) => {
 })
 
 
-Cypress.Commands.add('exeAction', (step, body) => {
+Cypress.Commands.add('exeAction', (step, body, environment) => {
 
     const action = new Cypress.Promise(resolve => {
 
         switch (step.action) {
             case "visit":
-                cy.visit(step.key);
+                cy.visit(environment[step.key] || step.key);
                 break;
             case "fill":
                 step.datas.forEach((data) => {
-                    cy.exeInput(data, body);
+                    cy.exeInput(data, body, environment);
                 });
                 break;
             case "click":
@@ -137,10 +141,10 @@ Cypress.Commands.add('exeAction', (step, body) => {
 						}
 					});
 					iframe.onIframeLoad().then((iframebody) => {
-						cy.exeAsser(asser, iframebody)
+						cy.exeAsser(asser, iframebody, environment)
 					});
 				} else {
-					cy.exeAction(asser)
+					cy.exeAsser(asser, null, environment)
 				}
             }
         });

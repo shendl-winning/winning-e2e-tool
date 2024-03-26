@@ -168,7 +168,7 @@
       </el-tab-pane>
     </el-tabs>
     <div class="opbuttons">
-      <el-button @click="execute" size="small">单例启动</el-button>
+      <el-button @click="execute" size="small" v-if="env">单例启动</el-button>
       <el-button type="success" size="small" @click="testCaseModifyHandlConfirm"
         >保 存</el-button
       >
@@ -335,8 +335,10 @@ let testcaseid = proid.id;
 let testcasename = proid.name;
 let groupids = proid.groupids;
 let productid = proid.productid;
+const env = ref();
+
 const execute = () => {
-  Kelp.execute("yarn run cypress open --env id=" + testcaseid);
+  Kelp.execute("yarn run cypress open --env id=" + testcaseid + ",envid=" + env.value);
 };
 const activeName = ref("first");
 const autofocus = ref(null);
@@ -368,7 +370,7 @@ const updateVueflowEndId = (value) => {
 const vueflowLinksReduction = (index) => {
   vueflowLinks.value[index] &&
     vueflowLinks.value[index].forEach((edgeid) => {
-      console.log(edgeid);
+      //console.log(edgeid);
       const edge = findEdge(edgeid);
       edge.animated = false;
       edge.style = { stroke: "#000000" };
@@ -542,6 +544,8 @@ const testcase = ref<TestCase>({
 });
 let testcaseAdded = true;
 onMounted(() => {
+  env.value = Kelp.getEnv("ENVIRONMENT");
+  //console.log(env.value)
   autofocus.value.focus();
   axios
     .get("http://172.16.7.148:9200/testcase/_doc/" + testcaseid)
@@ -844,7 +848,7 @@ const append = (node: Node, data: Datas) => {
 };
 
 const remove = (node: Node, data: Datas) => {
-  console.log(data);
+  //console.log(data);
   const parent = node.parent;
   const children: Datas[] = parent.data.children || parent.data;
   const index = children.findIndex((d) => d.id === data.id);
@@ -931,6 +935,10 @@ const Assertion = ref({
     },{
       value: "have.value",
       label: "元素值等于",
+    },
+    {
+      value: "have.length",
+      label: "元值数量等于",
     },
   ],
   asser: null,
@@ -1067,13 +1075,13 @@ const assertionHandleDelete = (index, asser) => {
 
 .content1-data-for-fill {
   top: 0px;
-  bottom: 50%;
+  bottom: 30%;
   padding-top: 3px;
 }
 
 .content1-assertion-for-fill {
   margin-top: 5px;
-  top: 50%;
+  top: 70%;
   bottom: 0px;
 }
 

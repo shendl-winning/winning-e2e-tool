@@ -4,6 +4,24 @@ describe('Kelp E2E Testing', () => {
 	// 	cy.viewport(1920, 1080);
 	// })
 
+	let environment = {};
+	Cypress.$.ajax({
+		url: 'http://172.16.7.148:9200/environment/_doc/' + Cypress.env().envid,
+		type: 'get',
+		async: false,
+		cache: true,
+		success: function (response) {
+			const arr = response._source.datas
+			if(arr){
+				arr.forEach((item) => {
+					environment["{{" + item.code + "}}"] = item.note
+				}); 
+			}
+		}
+	});
+
+
+
 	let testcase = null;
 	Cypress.$.ajax({
 		url: 'http://172.16.7.148:9200/testcase/_doc/' + Cypress.env().id,
@@ -65,10 +83,10 @@ describe('Kelp E2E Testing', () => {
 						}
 					});
 					iframe.onIframeLoad().then((iframebody) => {
-						cy.exeAction(step, iframebody)
+						cy.exeAction(step, iframebody, environment)
 					});
 				} else {
-					cy.exeAction(step)
+					cy.exeAction(step, null, environment)
 				}
 			})
 		});

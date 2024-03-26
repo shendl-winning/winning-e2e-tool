@@ -274,7 +274,7 @@ const getNodeGroupids = (node: Node) => {
 };
 
 const getNodeProductid = (node: Node) => {
-  if (node.data.type == 2) {
+  if (node.data.type == 2 || node.data.type == 1 ) {
     productid = node.data.id;
   } else {
     getNodeProductid(node.parent);
@@ -474,7 +474,7 @@ const handleDrop = (
       },
     })
     .then((res) => {
-      console.log(res);
+      //console.log(res);
     });
 };
 
@@ -486,7 +486,7 @@ const checkboxClick = (data: Tree) => {
       },
     })
     .then((res) => {
-      console.log(res);
+      //console.log(res);
     });
 };
 

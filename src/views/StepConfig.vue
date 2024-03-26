@@ -953,7 +953,11 @@ const Assertion = ref({
     },
     {
       value: "have.value",
-      label: "元值素等于",
+      label: "元素值等于",
+    },
+    {
+      value: "have.length",
+      label: "元素数量等于",
     },
   ],
   asser: null,
@@ -1066,13 +1070,13 @@ const assertionHandleDelete = (index, asser) => {
 
 .content1-data-for-fill {
   top: 0px;
-  bottom: 50%;
+  bottom: 30%;
   padding-top: 3px;
 }
 
 .content1-assertion-for-fill {
   margin-top: 5px;
-  top: 50%;
+  top: 70%;
   bottom: 0px;
 }
 
