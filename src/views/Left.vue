@@ -73,7 +73,7 @@
                 <el-menu-item
                   index="2"
                   v-if="data.type == 3"
-                  @click="useTestcaseAppend.testRecord(data, node)"
+                  @click="useTestSuiteAppend.testRecord(data, node)"
                 >
                   <el-icon><Files /></el-icon>
                   <span>测试记录</span>
@@ -82,7 +82,7 @@
                 <el-menu-item
                   index="2"
                   v-if="data.type == 3"
-                  @click="useTestcaseAppend.executeTest(data, node)"
+                  @click="useTestSuiteAppend.openTestSuiteDialog(data, node)"
                 >
                   <el-icon><VideoPlay /></el-icon>
                   <span>执行测试</span>
@@ -191,7 +191,7 @@
 
     <el-dialog
       v-model="useAddAppend.dialogAddVisible"
-      title="重命名"
+      title="新增"
       width="30%"
       @opened="useAddAppend.onOpend()"
     >
@@ -211,6 +211,29 @@
         </span>
       </template>
     </el-dialog>
+    
+    <el-dialog
+      v-model="useTestSuiteAppend.dialogAddVisible"
+      title="新增测试套件"
+      width="30%"
+    >
+      <el-form :model="form">
+        <el-form-item label="测试套件名称：" :label-width="formLabelWidth">
+          <el-input v-model="useTestSuiteAppend.name" autocomplete="off" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="useTestSuiteAppend.dialogAddVisible = false"
+            >取消</el-button
+          >
+          <el-button type="primary" @click="useTestSuiteAppend.wait4ExecuteTest()">
+            确认
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 <script setup lang="ts">
@@ -232,7 +255,7 @@ import {
   Refresh,
   VideoPlay,
 } from "@element-plus/icons-vue";
-import { ElLoading ,ElMessage, ElMessageBox} from "element-plus";
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { ref, reactive, onMounted, watch } from "vue";
 import type Node from "element-plus/es/components/tree/src/model/node";
 import type { DragEvents } from "element-plus/es/components/tree/src/model/useDragNode";
@@ -247,9 +270,11 @@ import moment from "moment";
 const emit = defineEmits(["rightComponentHandle"]);
 let groupids;
 let productid;
+let productname;
 const handleNodeClick = (data, node) => {
   groupids = [];
   productid = "";
+  productname = "";
   getNodeProductid(node);
   if (data.type >= 3) {
     getNodeGroupids(node);
@@ -260,7 +285,8 @@ const handleNodeClick = (data, node) => {
     data.id,
     data.name,
     groupids,
-    productid
+    productid,
+    productname
   );
 };
 
@@ -274,8 +300,9 @@ const getNodeGroupids = (node: Node) => {
 };
 
 const getNodeProductid = (node: Node) => {
-  if (node.data.type == 2 || node.data.type == 1 ) {
+  if (node.data.type == "2" || node.data.type == "1") {
     productid = node.data.id;
+    productname = node.data.name;
   } else {
     getNodeProductid(node.parent);
   }
@@ -287,6 +314,7 @@ const treeRef = ref();
 watch(filterText, (val) => {
   treeRef.value!.filter(val);
 });
+
 const filterNode = (value: string, data: Tree) => {
   if (!value) return true;
   return data.name.includes(value);
@@ -327,67 +355,62 @@ const props = {
 };
 
 const removeConfirm = (node: Node, data: Tree) => {
-  ElMessageBox.confirm(
-    '确定要删除吗？',
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  )
+  ElMessageBox.confirm("确定要删除吗？", "警告", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
     .then(() => {
       remove(node, data);
       ElMessage({
-        type: 'success',
-        message: '删除成功！',
-      })
+        type: "success",
+        message: "删除成功！",
+      });
     })
     .catch(() => {
       ElMessage({
-        type: 'info',
-        message: '删除取消了！',
-      })
-    })
-}
+        type: "info",
+        message: "删除取消了！",
+      });
+    });
+};
 
 const remove = (node: Node, data: Tree) => {
   const currentDate = new Date();
   // 使用moment.js格式化日期
   const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
 
-    let bulk = "\n";
+  let bulk = "\n";
+  bulk +=
+    '{ "delete":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+    data.id +
+    '"}}\n';
+  if (node.parent.childNodes.length == 1) {
     bulk +=
-      '{ "delete":  { "_index": "manages", "_type": "_doc" , "_id": "' +
-      data.id +
+      '{ "update":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+      data.parentid +
       '"}}\n';
-    if(node.parent.childNodes.length == 1){
-      bulk +=
-        '{ "update":  { "_index": "manages", "_type": "_doc" , "_id": "' +
-        data.parentid +
-        '"}}\n';
-      bulk +=
-        '{"doc":{"leaf": true' +
-        ',"modificationdate": "' +
-        formattedDate +
-        '"}}\n';
-    }
-    bulk += "\n";
-    axios
-      .post("http://172.16.7.148:9200/_bulk", bulk, {
-        headers: {
-          "Content-Type": "application/x-ndjson",
-        },
-      })
-      .then((res) => {
-        if(node.parent.childNodes.length == 1){
-          node.parent.data.leaf = true;
-        }
-        treeRef.value.remove(node);
-        treeRef.value.setCurrentKey(data.parentid);
-        //handleNodeClick(node.parent.data, node.parent);
-      });
-
+    bulk +=
+      '{"doc":{"leaf": true' +
+      ',"modificationdate": "' +
+      formattedDate +
+      '"}}\n';
+  }
+  bulk += "\n";
+  axios
+    .post("http://172.16.7.148:9200/_bulk", bulk, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+      },
+    })
+    .then((res) => {
+      if (node.parent.childNodes.length == 1) {
+        node.parent.data.leaf = true;
+      }
+      treeRef.value.remove(node);
+      treeRef.value.setCurrentKey(data.parentid);
+      //handleNodeClick(node.parent.data, node.parent);
+    });
 };
 
 const refresh = (node: Node, data: Tree) => {
@@ -429,6 +452,7 @@ const loadManages = (node: Node, resolve: (data: Tree[]) => void) => {
           checked: managenode.checked,
         });
       });
+      data.sort((a, b) => a.sort - b.sort);
       return resolve(data);
     });
 };
@@ -452,20 +476,52 @@ const handleDrop = (
   const currentDate = new Date();
   // 使用moment.js格式化日期
   const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+  let targetnode;
+  let oldparent = treeRef.value.getNode(draggingNode.data.parentid);
+  // console.log(dropNode.data.name)
+  // console.log(dropType)
+  switch (dropType) {
+    case "inner":
+      targetnode = dropNode;
+      draggingNode.data.parentid = targetnode.data.id;
+      break;
+    case "before":
+      targetnode = dropNode.parent
+      draggingNode.data.parentid = targetnode.data.id;
+      break;
+    case "after":
+      targetnode = dropNode.parent
+      draggingNode.data.parentid = targetnode.data.id;
+      break;
+  }
+  
   let data = "\n";
-  dropNode.parent.childNodes.forEach((node, index) => {
+  targetnode.childNodes.forEach((node, index) => {
     data +=
       '{ "update":  { "_index": "manages", "_type": "_doc" , "_id": "' +
       node.data.id +
       '"}}\n';
     data +=
       '{"doc":{"sort": ' +
-      (index+1) +
-      "" +
-      ',"modificationdate": "' +
+      (index + 1) +
+      ',"parentid" : "' +
+      node.data.parentid +
+      '","modificationdate": "' +
       formattedDate +
       '"}}\n';
   });
+
+  if (oldparent.childNodes.length == 0) {
+    data +=
+      '{ "update":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+      oldparent.data.id +
+      '"}}\n';
+    data +=
+      '{"doc":{"leaf": true' +
+      ',"modificationdate": "' +
+      formattedDate +
+      '"}}\n';
+  }
   data += "\n";
   axios
     .post("http://172.16.7.148:9200/_bulk", data, {
@@ -474,7 +530,7 @@ const handleDrop = (
       },
     })
     .then((res) => {
-      //console.log(res);
+      oldparent.data.leaf = true; 
     });
 };
 
@@ -516,20 +572,63 @@ const useTestcaseAppend = reactive({
     useTestcaseAppend.node = node;
   },
   append: () => {
+    getNodeProductid(useTestcaseAppend.node);
     const newChild = {
       id: uuidv4(),
       name: form.name,
       type: 5,
       leaf: true,
       parentid: useTestcaseAppend.data.id,
+      productid: productid,
       sort: useTestcaseAppend.node.childNodes.length + 1,
       checked: true,
     };
+    const currentDate = new Date();
+    const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+    let data = "\n";
+    data +=
+      '{ "index":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+      newChild.id +
+      '"}}\n';
+    data +=
+      '{"id": "' +
+      newChild.id +
+      '","name": "' +
+      newChild.name +
+      '","type": ' +
+      newChild.type +
+      ',"leaf": ' +
+      newChild.leaf +
+      ',"parentid": "' +
+      newChild.parentid +
+      '","productid": "' +
+      newChild.productid +
+      '","sort": ' +
+      newChild.sort +
+      ',"checked": ' +
+      newChild.checked +
+      ',"creationdate": "' +
+      formattedDate +
+      '","modificationdate": "' +
+      formattedDate +
+      '"}\n';
+    data +=
+      '{ "update":  { "_index": "manages", "_type": "_doc" , "_id": "' +
+      newChild.parentid +
+      '"}}\n';
+    data +=
+      '{"doc":{"leaf": false' +
+      ',"modificationdate": "' +
+      formattedDate +
+      '"}}\n';
+    data += "\n";
+    //console.log(data)
     axios
-      .post(
-        "http://172.16.7.148:9200/manages/_doc/" + newChild.id + "/_create",
-        newChild
-      )
+      .post("http://172.16.7.148:9200/_bulk", data, {
+        headers: {
+          "Content-Type": "application/x-ndjson",
+        },
+      })
       .then((res) => {
         useTestcaseAppend.dialogFormVisible = false;
         const testcase: FakeNode = {
@@ -540,15 +639,30 @@ const useTestcaseAppend = reactive({
         handleNodeClick(newChild, testcase);
       });
   },
+
+});
+const useTestSuiteAppend = reactive({
+  dialogAddVisible: false,
+  data: null,
+  node: null,
+  name:"",
+  openTestSuiteDialog: (data: Tree, node: Node) => {
+    node.loaded = false;
+    node.expand();
+    useTestSuiteAppend.dialogAddVisible = true;
+    useTestSuiteAppend.data = data;
+    useTestSuiteAppend.node = node;
+  },
   testRecord: (data: Tree, node: Node) => {
     const newData = Object.assign({}, data);
     newData.type = 31;
     handleNodeClick(newData, node);
   },
-  executeTest: (data: Tree, node: Node) => {
+  wait4ExecuteTest: () => {
+    useTestSuiteAppend.dialogAddVisible = false;
     const loading = ElLoading.service({
       lock: true,
-      text: data.name + " Running",
+      text: useTestSuiteAppend.name + " creating",
       background: "rgba(0, 0, 0, 0.4)",
     });
     let testcase: string[] = [];
@@ -595,7 +709,7 @@ const useTestcaseAppend = reactive({
         resolve(true);
       });
     }
-    getTestCase(data.id).then((res) => {
+    getTestCase(useTestSuiteAppend.data.id).then((res) => {
       useTestcaseAppend.visible = false;
       const currentDate = new Date();
       // 使用moment.js格式化日期
@@ -603,13 +717,13 @@ const useTestcaseAppend = reactive({
       let uuid = uuidv4();
       let record = {
         id: uuid,
-        name: data.name,
-        testsuite: data.id,
+        name: useTestSuiteAppend.name,
+        testsuite: useTestSuiteAppend.data.id,
         testcase: testcase,
         report: "cypress/results/" + uuid,
         record: "cypress/videos/" + uuid,
         executetime: formattedDate,
-        executestat: "1",
+        executestat: "0",
         creationdate: formattedDate,
       };
       axios
@@ -618,67 +732,15 @@ const useTestcaseAppend = reactive({
           record
         )
         .then((res) => {
-          //Kelp.execute("yarn run cypress open --env id=" + uuid
-          Kelp.execute(
-            "yarn cypress run -s 'cypress/e2e/testsuite.cy.js' --config screenshotsFolder=cypress/screenshots/" +
-              uuid +
-              ",videosFolder=cypress/videos/" +
-              uuid +
-              " --reporter-options reportDir=cypress/results/" +
-              uuid +
-              ",overwrite=true,html=true,json=true --env id=" +
-              uuid
-          ).then(
-            (succ) => {
-              useTestcaseAppend.updateTestrecord(uuid, data, node, loading, 2);
-            },
-            (fail) => {
-              //如果 promise 的状态为 rejected，则执行这里的代码
-              useTestcaseAppend.updateTestrecord(uuid, data, node, loading, 3);
-              console.error(fail);
-            }
-          );
-
-          setTimeout(function () {
-            useTestcaseAppend.testRecord(data, node);
-          }, 1500); // 定时
+           setTimeout(function () {
+             useTestSuiteAppend.testRecord(useTestSuiteAppend.data, useTestSuiteAppend.node);
+             loading.close();
+           }, 1500); // 定时
         });
     });
-  },
-  updateTestrecord: (uuid, data, node, loading, executestat) => {
-    axios
-      .get(Kelp.path("../../../../../cypress/results/" + uuid + "/mochawesome.json"))
-      .then((res) => {
-        const mochawesome = res.data;
-        const currentDate = new Date();
-        // 使用moment.js格式化日期
-        const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
-        const update = {
-          doc: {
-            tests: mochawesome.stats.tests,
-            passes: mochawesome.stats.passes,
-            pending: mochawesome.stats.pending,
-            failures: mochawesome.stats.failures,
-            duration: mochawesome.stats.duration,
-            passPercent: mochawesome.stats.passPercent,
-            executetime: formattedDate,
-            executestat: executestat,
-          },
-        };
-        axios
-          .post(
-            "http://172.16.7.148:9200/testrecord/_doc/" + uuid + "/_update",
-            update
-          )
-          .then(() => {
-            setTimeout(function () {
-              useTestcaseAppend.testRecord(data, node);
-              loading.close();
-            }, 1500); // 定时
-          });
-      });
-  },
-});
+  }
+})
+
 const useRenameAppend = reactive({
   dialogRenameVisible: false,
   data: null,
@@ -698,8 +760,11 @@ const useRenameAppend = reactive({
     // 使用moment.js格式化日期
     const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
     let param = {};
+    getNodeProductid(useRenameAppend.node);
+    console.log(productid);
     let p = {
       name: form.name,
+      productid: productid,
       modificationdate: formattedDate,
     };
     param["doc"] = p;
@@ -739,12 +804,14 @@ const useAddAppend = reactive({
     const currentDate = new Date();
     // 使用moment.js格式化日期
     const formattedDate = moment(currentDate).format("YYYY-MM-DD HH:mm:ss");
+    getNodeProductid(useAddAppend.node);
     let newChild = {
       id: uuidv4(),
       name: form.name,
       type: useAddAppend.type,
       leaf: true,
       parentid: useAddAppend.data.id,
+      productid: productid,
       sort: useAddAppend.node.childNodes.length + 1,
       checked: true,
       creationdate: formattedDate,
@@ -766,6 +833,8 @@ const useAddAppend = reactive({
       newChild.leaf +
       ',"parentid": "' +
       newChild.parentid +
+      '","productid": "' +
+      newChild.productid +
       '","sort": ' +
       newChild.sort +
       ',"checked": ' +
@@ -785,6 +854,7 @@ const useAddAppend = reactive({
       newChild.modificationdate +
       '"}}\n';
     data += "\n";
+    //console.log(data)
     axios
       .post("http://172.16.7.148:9200/_bulk", data, {
         headers: {

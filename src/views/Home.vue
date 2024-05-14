@@ -11,9 +11,11 @@
 <script setup lang="ts">
 import { shallowRef, provide, ref, reactive } from "vue";
 import rightDefault from "@/views/RightDefault.vue";
-import testcase from "@/views/Testcase.vue";
+//import testcase from "@/views/Testcase.vue";
+import testcase from "@/views/MindMapTestCase.vue";
 import inputMethodConfig from "@/views/InputMethodConfig.vue";
-import stepConfig from "@/views/StepConfig.vue";
+//import stepConfig from "@/views/StepConfig.vue";
+import stepConfig from "@/views/MindMapStepConfig.vue";
 import testRecord from "@/views/TestRecord.vue";
 import { ElLoading } from "element-plus";
 
@@ -21,12 +23,13 @@ const rightComponent = shallowRef(rightDefault);
 let proid = ref({});
 provide("proid", proid);
 const data = ref();
-const rightComponentHandle = (type, id, name, groupids, productid) => {
+const rightComponentHandle = (type, id, name, groupids, productid, productname) => {
   proid.value = {
     id: id,
     name: name,
     groupids: groupids,
     productid: productid,
+    productname : productname
   };
   //console.log(proid.value);
   switch (type) {

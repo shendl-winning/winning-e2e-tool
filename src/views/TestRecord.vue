@@ -3,7 +3,14 @@
     <el-tabs v-model="activeName" class="tabs" @tab-remove="removeTab">
       <el-tab-pane label="测试记录" name="first">
         <el-table :data="records">
-          <el-table-column label="执行时长" width="150">
+          <el-table-column label="名称" width="150">
+            <template #default="scope">
+              <a href="javascript:void(0)">
+              {{ scope.row.name }}
+              </a>
+            </template>
+          </el-table-column>
+          <el-table-column label="执行时长" width="100">
             <template #default="scope">
               {{ scope.row.duration }}
             </template>
@@ -15,12 +22,21 @@
               <div>成功数：{{ scope.row.passes }} 步</div>
               <!-- <div>等待数：{{ scope.row.pending }} 步</div> -->
               <div>失败数：{{ scope.row.failures }} 步</div>
-              <div>通过百分比：{{ scope.row.passPercent ? parseFloat(scope.row.passPercent.toFixed(2)) : 0 }}%</div>
+              <div>
+                通过百分比：{{
+                  scope.row.passPercent
+                    ? parseFloat(scope.row.passPercent.toFixed(2))
+                    : 0
+                }}%
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="执行状态" width="100">
             <template #default="scope">
-              <div v-if="scope.row.executestat == 1" style="color: yellow">
+              <div v-if="scope.row.executestat == 0" style="color: #ffcc00">
+                待执行
+              </div>
+              <div v-if="scope.row.executestat == 1" style="color: blue">
                 执行中
               </div>
               <div v-if="scope.row.executestat == 2" style="color: green">
@@ -31,7 +47,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="执行日期">
+          <el-table-column label="执行日期" width="200">
             <template #default="scope">
               <div>{{ scope.row.executetime }}</div>
               <div style="font-size: 12px; color: #ccc">
@@ -104,7 +120,6 @@ import { videoPlay } from "vue3-video-play";
 import { ElLoading } from "element-plus";
 import moment from "moment";
 
-
 let proid = inject("proid").value;
 let testsuiteid = proid.id;
 
@@ -149,15 +164,18 @@ const options = reactive({
 
 const openMochawesome = (row) => {
   dialogMochawesome.id = row.id;
-  console.log()
-  dialogMochawesome.src =
-    Kelp.path("../../../../../cypress/results/" + row.id + "/mochawesome.html");
+  console.log();
+  dialogMochawesome.src = Kelp.path(
+    "../../../../../cypress/results/" + row.id + "/mochawesome.html"
+  );
   dialogMochawesome.visible = true;
 };
 const openVideo = (row) => {
   dialogVideo.id = row.id;
   options.title = row.name;
-  options.src = Kelp.path("../../../../../cypress/videos/" + row.id + "/testsuite.cy.js.mp4");
+  options.src = Kelp.path(
+    "../../../../../cypress/videos/" + row.id + "/testsuite.cy.js.mp4"
+  );
   dialogVideo.visible = true;
 };
 
@@ -227,7 +245,15 @@ const handleDelete = (row) => {
   axios
     .delete("http://172.16.7.148:9200/testrecord/_doc/" + row.id)
     .then((res) => {
-      handleLoad();
+      const loading = ElLoading.service({
+        lock: true,
+        text: "deleting",
+        background: "rgba(0, 0, 0, 0.4)",
+      });
+      setTimeout(() => {
+        handleLoad();
+        loading.close();
+      }, 1500);
     });
 };
 
@@ -262,7 +288,11 @@ const handleExecute = (row) => {
 
 const updateTestrecord = (row, loading, executestat) => {
   axios
-    .get(Kelp.path("../../../../../cypress/results/" + row.id + "/mochawesome.json"))
+    .get(
+      Kelp.path(
+        "../../../../../cypress/results/" + row.id + "/mochawesome.json"
+      )
+    )
     .then((res) => {
       const mochawesome = res.data;
       const currentDate = new Date();
@@ -300,7 +330,7 @@ handleLoad();
 
 <style scoped>
 .content {
-  border:0px #000 solid;
+  border: 0px #000 solid;
   position: relative;
   width: 100%;
   height: 100%;
@@ -321,8 +351,8 @@ handleLoad();
   height: 100%;
 }
 
-:global(.el-table__body-wrapper){
-   position: absolute;
+:global(.el-table__body-wrapper) {
+  position: absolute;
   top: 40px;
   right: 0px;
   bottom: 0px;
@@ -337,7 +367,6 @@ handleLoad();
   background-color: #ccc;
 }
 
-
 .opbuttons {
   position: absolute;
   top: 0px;
@@ -347,5 +376,4 @@ handleLoad();
 :global(.el-loading-parent--relative) {
   position: static !important;
 }
-
 </style>

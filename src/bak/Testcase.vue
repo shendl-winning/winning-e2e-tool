@@ -336,10 +336,10 @@ let testcasename = proid.name;
 let groupids = proid.groupids;
 let productid = proid.productid;
 const env = ref();
-
 const execute = () => {
   Kelp.execute("yarn run cypress open --env id=" + testcaseid + ",envid=" + env.value);
 };
+
 const activeName = ref("first");
 const autofocus = ref(null);
 const dialogAssertionVisible = ref(false);

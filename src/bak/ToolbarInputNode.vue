@@ -13,6 +13,7 @@
 </template>
 
 <script lang="ts" setup>
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { Handle, Position } from '@vue-flow/core'
 import { NodeToolbar } from '@vue-flow/node-toolbar'
 import {

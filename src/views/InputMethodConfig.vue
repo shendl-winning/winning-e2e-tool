@@ -10,11 +10,11 @@
           </el-table-column>
           <el-table-column label="数据类型">
             <template #default="scope">
-              <span v-if="scope.row.datatype == 0" >字符串</span>
-              <span v-if="scope.row.datatype == 3" >数字</span>
-              <span v-if="scope.row.datatype == 4" >日期</span>
-              <span v-if="scope.row.datatype == 1" >对象</span>
-              <span v-if="scope.row.datatype == 2" >数组</span>
+              <span v-if="scope.row.datatype == 0">字符串</span>
+              <span v-if="scope.row.datatype == 3">数字</span>
+              <span v-if="scope.row.datatype == 4">日期</span>
+              <span v-if="scope.row.datatype == 1">对象</span>
+              <span v-if="scope.row.datatype == 2">数组</span>
             </template>
           </el-table-column>
           <el-table-column label="脚本" width="400">
@@ -54,10 +54,7 @@
           <el-input v-model="inputmethod.name" type="text" />
         </el-form-item>
         <el-form-item label="数据类型:">
-          <el-select
-            size="small"
-            v-model="inputmethod.datatype"
-          >
+          <el-select size="small" v-model="inputmethod.datatype">
             <el-option label="字符串" value="0" />
             <el-option label="数字" value="3" />
             <el-option label="日期" value="4" />
@@ -96,6 +93,7 @@ import {
 } from "@element-plus/icons-vue";
 import { ref, reactive, inject, onMounted } from "vue";
 import type { TabsPaneContext } from "element-plus";
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { v4 as uuidv4 } from "uuid";
 
 import Codemirror from "codemirror-editor-vue3";
@@ -121,7 +119,7 @@ const handleLoad = () => {
       size: 10000,
       query: {
         term: {
-          product: productid
+          product: productid,
         },
       },
       sort: {
@@ -135,7 +133,7 @@ const handleLoad = () => {
         let inputmethod = element._source;
         inputmethods.value.push({
           id: inputmethod.id,
-          name: inputmethod.name, 
+          name: inputmethod.name,
           //classifyname: inputmethod.classifyname,
           datatype: inputmethod.datatype,
           method: inputmethod.method,
@@ -172,7 +170,15 @@ const handleDelete = (row) => {
   axios
     .delete("http://172.16.7.148:9200/inputmethod/_doc/" + row.id)
     .then((res) => {
-      handleLoad();
+      const loading = ElLoading.service({
+        lock: true,
+        text: "deleting",
+        background: "rgba(0, 0, 0, 0.4)",
+      });
+      setTimeout(() => {
+        handleLoad();
+        loading.close();
+      }, 1500);
     });
 };
 
@@ -199,8 +205,8 @@ const handleConfirm = () => {
     classifyname: inputmethod.value.classifyname,
     datatype: inputmethod.value.datatype,
     method: inputmethod.value.method,
-    product:productid,
-    modificationdate:formattedDate
+    product: productid,
+    modificationdate: formattedDate,
   };
   if (dialogStat == "add") {
     action = "/_create";
@@ -218,8 +224,20 @@ const handleConfirm = () => {
       param
     )
     .then((res) => {
-      handleLoad();
-      dialogVisible.value = false;
+      const loading = ElLoading.service({
+        lock: true,
+        text: "saving",
+        background: "rgba(0, 0, 0, 0.4)",
+      });
+      setTimeout(() => {
+        handleLoad();
+        loading.close();
+        ElMessage({
+          message: "保存成功.",
+          type: "success",
+        });
+        dialogVisible.value = false;
+      }, 1500);
     });
 };
 
